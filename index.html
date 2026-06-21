@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BULVARA — Web3 Fitness RPG</title>
+    <script src="[cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="[unpkg.com](https://unpkg.com/react@18/umd/react.production.min.js)"></script>
+    <script src="[unpkg.com](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)"></script>
+    <script src="[unpkg.com](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
+    <script src="[unpkg.com](https://unpkg.com/lucide@latest)"></script>
+    <style>
+        @import url('[fonts.googleapis.com](https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap)');
+        
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .font-cyber {
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .neon-glow {
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.1);
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+        
+        .gold-glow {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), 0 0 40px rgba(255, 215, 0, 0.2);
+        }
+        
+        .gold-text {
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.4);
+        }
+        
+        .card-glass {
+            background: linear-gradient(135deg, rgba(30, 30, 50, 0.9) 0%, rgba(20, 20, 35, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+        
+        .btn-cyber {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-cyber:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
+        }
+        
+        .btn-cyber:disabled {
+            background: linear-gradient(135deg, #444 0%, #333 100%);
+            cursor: not-allowed;
+        }
+        
+        .btn-gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+            color: #000;
+        }
+        
+        .btn-gold:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+        }
+        
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill-str {
+            background: linear-gradient(90deg, #ff4444, #ff6666);
+        }
+        
+        .progress-fill-mas {
+            background: linear-gradient(90deg, #44ff44, #66ff66);
+        }
+        
+        .progress-fill-end {
+            background: linear-gradient(90deg, #4444ff, #6666ff);
+        }
+        
+        .progress-fill-energy {
+            background: linear-gradient(90deg, #00d4ff, #00ffff);
+        }
+        
+        .capsule-container {
+            perspective: 1000px;
+        }
+        
+        .capsule {
+            transform-style: preserve-3d;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotateY(0deg); }
+            50% { transform: translateY(-10px) rotateY(10deg); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            25% { transform: translateX(-5px) rotate(-5deg); }
+            75% { transform: translateX(5px) rotate(5deg); }
+        }
+        
+        @keyframes glow-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 0 60px rgba(0, 255, 255, 0.4); }
+        }
+        
+        .shake {
+            animation: shake 0.1s linear infinite;
+        }
+        
+        .glow-pulse {
+            animation: glow-pulse 0.5s ease-in-out infinite;
+        }
+        
+        .tab-active {
+            color: #00d4ff;
+            background: linear-gradient(180deg, rgba(0, 212, 255, 0.2) 0%, transparent 100%);
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .athlete-container {
+            position: relative;
+        }
+        
+        .athlete-glow {
+            position: absolute;
+            inset: -20px;
+            background: radial-gradient(circle, rgba(0, 255, 255, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(20px);
+        }
+        
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        
+        .rarity-common { color: #888; }
+        .rarity-rare { color: #00d4ff; }
+        .rarity-legendary { color: #ffd700; }
+        
+        .gene-card-common {
+            border-color: #444;
+            background: linear-gradient(135deg, rgba(50, 50, 50, 0.5) 0%, rgba(30, 30, 30, 0.5) 100%);
+        }
+        
+        .gene-card-rare {
+            border-color: #00d4ff;
+            background: linear-gradient(135deg, rgba(0, 50, 60, 0.5) 0%, rgba(0, 30, 40, 0.5) 100%);
+        }
+        
+        .gene-card-legendary {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, rgba(60, 50, 0, 0.5) 0%, rgba(40, 30, 0, 0.5) 100%);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo } = React;
+
+        // Icons as SVG components
+        const DumbbellIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.4 14.4 9.6 9.6"/>
+                <path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/>
+                <path d="m21.5 21.5-1.4-1.4"/>
+                <path d="M3.9 3.9 2.5 2.5"/>
+                <path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/>
+            </svg>
+        );
+
+        const DnaIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 15c6.667-6 13.333 0 20-6"/>
+                <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/>
+                <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/>
+                <path d="m17 6-2.5-2.5"/>
+                <path d="m14 8-1-1"/>
+                <path d="m7 18 2.5 2.5"/>
+                <path d="m3.5 14.5.5.5"/>
+                <path d="m20 9 .5.5"/>
+                <path d="m6.5 12.5 1 1"/>
+                <path d="m16.5 10.5 1 1"/>
+                <path d="m10 16 1.5 1.5"/>
+            </svg>
+        );
+
+        const CheckSquareIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                <path d="m9 12 2 2 4-4"/>
+            </svg>
+        );
+
+        const WalletIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/>
+                <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+            </svg>
+        );
+
+        const BananaIcon = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 15c-2.2 0-4-1.8-4-4 0-.6.1-1.1.3-1.6l2.1.8c-.1.3-.2.5-.2.8 0 1.1.9 2 2 2s2-.9 2-2c0-.3-.1-.5-.2-.8l2.1-.8c.2.5.3 1 .3 1.6 0 2.2-1.8 4-4 4zm5.2-5.8l-2.1-.8c.5-.4.9-1 .9-1.7 0-1.1-.9-2-2-2s-2 .9-2 2c0 .7.4 1.3.9 1.7l-2.1.8C9.3 10.5 9 9.8 9 9c0-1.7 1.3-3 3-3s3 1.3 3 3c0 .8-.3 1.5-.8 2.2z"/>
+            </svg>
+        );
+
+        const ZapIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+        );
+
+        const CopyIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+            </svg>
+        );
+
+        const CheckIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+        );
+
+        const UserIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+        );
+
+        const XIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18"/>
+                <path d="m6 6 12 12"/>
+            </svg>
+        );
+
+        const LoaderIcon = ({ className }) => (
+            <svg className={`${className} animate-spin`} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+        );
+
+        const SparklesIcon = ({ className }) => (
+            <svg className={className} xmlns="[w3.org](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                <path d="M5 3v4"/>
+                <path d="M19 17v4"/>
+                <path d="M3 5h4"/>
+                <path d="M17 19h4"/>
+            </svg>
+        );
+
+        // Default state
+        const defaultState = {
+            balance: 1000,
+            energy: 100,
+            maxEnergy: 100,
+            stats: { str: 10, mas: 10, end: 10 },
+            capsules: 3,
+            genes: [],
+            completedQuests: [],
+            walletConnected: false,
+            lastEnergyUpdate: Date.now()
+        };
+
+        // Load state from localStorage
+        const loadState = () => {
+            try {
+                const saved = localStorage.getItem('bulvara_state');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    return { ...defaultState, ...parsed };
+                }
+            } catch (e) {
+                console.error('Error loading state:', e);
+            }
+            return defaultState;
+        };
+
+        // Save state to localStorage
+        const saveState = (state) => {
+            try {
+                localStorage.setItem('bulvara_state', JSON.stringify(state));
+            } catch (e) {
+                console.error('Error saving state:', e);
+            }
+        };
+
+        // Main App Component
+        function App() {
+            const [activeTab, setActiveTab] = useState('gym');
+            const [gameState, setGameState] = useState(loadState);
+            const [isTraining, setIsTraining] = useState(false);
+            const [trainingProgress, setTrainingProgress] = useState(0);
+            const [currentWorkout, setCurrentWorkout] = useState(null);
+            const [showSuccessModal, setShowSuccessModal] = useState(false);
+            const [successData, setSuccessData] = useState(null);
+            const [isOpeningCapsule, setIsOpeningCapsule] = useState(false);
+            const [showGeneModal, setShowGeneModal] = useState(false);
+            const [newGene, setNewGene] = useState(null);
+            const [questLoading, setQuestLoading] = useState(null);
+            const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+            const [copied, setCopied] = useState(false);
+
+            // Calculate total gene bonus
+            const totalGeneBonus = useMemo(() => {
+                return gameState.genes.reduce((acc, gene) => acc + gene.bonus, 0);
+            }, [gameState.genes]);
+
+            // Energy regeneration
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setGameState(prev => {
+                        if (prev.energy < prev.maxEnergy) {
+                            const timePassed = Date.now() - prev.lastEnergyUpdate;
+                            const energyToAdd = Math.floor(timePassed / 60000);
+                            if (energyToAdd > 0) {
+                                const newEnergy = Math.min(prev.maxEnergy, prev.energy + energyToAdd);
+                                const newState = { ...prev, energy: newEnergy, lastEnergyUpdate: Date.now() };
+                                saveState(newState);
+                                return newState;
+                            }
+                        }
+                        return prev;
+                    });
+                }, 10000);
+
+                return () => clearInterval(interval);
+            }, []);
+
+            // Save state whenever it changes
+            useEffect(() => {
+                saveState(gameState);
+            }, [gameState]);
+
+            const workouts = [
+                { id: 'pushups', name: 'Отжимания', energyCost: 20, duration: 10, strGain: 5, masGain: 0, endGain: 0, bulvReward: 10, icon: '💪' },
+                { id: 'squats', name: 'Приседания', energyCost: 40, duration: 30, strGain: 0, masGain: 10, endGain: 0, bulvReward: 25, icon: '🦵' },
+                { id: 'cardio', name: 'Кардио Блиц', energyCost: 60, duration: 60, strGain: 0, masGain: 0, endGain: 15, bulvReward: 50, icon: '🏃' }
+            ];
+
+            const startWorkout = (workout) => {
+                if (gameState.energy < workout.energyCost || isTraining) return;
+                
+                setGameState(prev => ({ ...prev, energy: prev.energy - workout.energyCost }));
+                setCurrentWorkout(workout);
+                setIsTraining(true);
+                setTrainingProgress(0);
+
+                const startTime = Date.now();
+                const duration = workout.duration * 1000;
+
+                const progressInterval = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(100, (elapsed / duration) * 100);
+                    setTrainingProgress(progress);
+
+                    if (elapsed >= duration) {
+                        clearInterval(progressInterval);
+                        completeWorkout(workout);
+                    }
+                }, 100);
+            };
+
+            const completeWorkout = (workout) => {
+                const bonusMultiplier = 1 + (totalGeneBonus / 100);
+                const finalBulv = Math.round(workout.bulvReward * bonusMultiplier);
+                const finalStr = Math.round(workout.strGain * bonusMultiplier);
+                const finalMas = Math.round(workout.masGain * bonusMultiplier);
+                const finalEnd = Math.round(workout.endGain * bonusMultiplier);
+
+                setGameState(prev => ({
+                    ...prev,
+                    balance: prev.balance + finalBulv,
+                    stats: {
+                        str: prev.stats.str + finalStr,
+                        mas: prev.stats.mas + finalMas,
+                        end: prev.stats.end + finalEnd
+                    }
+                }));
+
+                setSuccessData({
+                    bulv: finalBulv,
+                    str: finalStr,
+                    mas: finalMas,
+                    end: finalEnd,
+                    workout: workout.name
+                });
+                setShowSuccessModal(true);
+                setIsTraining(false);
+                setCurrentWorkout(null);
+                setTrainingProgress(0);
+            };
+
+            const openCapsule = () => {
+                if (isOpeningCapsule) return;
+                if (gameState.capsules <= 0 && gameState.balance < 500) return;
+
+                setIsOpeningCapsule(true);
+
+                if (gameState.capsules > 0) {
+                    setGameState(prev => ({ ...prev, capsules: prev.capsules - 1 }));
+                } else {
+                    setGameState(prev => ({ ...prev, balance: prev.balance - 500 }));
+                }
+
+                setTimeout(() => {
+                    const rand = Math.random() * 100;
+                    let gene;
+                    
+                    if (rand < 70) {
+                        gene = { id: Date.now(), name: 'Альфа Ген', rarity: 'common', bonus: 5 };
+                    } else if (rand < 95) {
+                        gene = { id: Date.now(), name: 'Кибер Мутант Ген', rarity: 'rare', bonus: 15 };
+                    } else {
+                        gene = { id: Date.now(), name: 'Нано Банан Бог', rarity: 'legendary', bonus: 50 };
+                    }
+
+                    setGameState(prev => ({ ...prev, genes: [...prev.genes, gene] }));
+                    setNewGene(gene);
+                    setShowGeneModal(true);
+                    setIsOpeningCapsule(false);
+                }, 2000);
+            };
+
+            const socialQuests = [
+                { id: 'telegram', name: 'Подписаться на канал BULVARA', reward: 500, icon: '📢' },
+                { id: 'invite', name: 'Пригласить 3 друзей', reward: 1500, icon: '👥' },
+                { id: 'twitter', name: 'Подписаться на BULVARA в X', reward: 400, icon: '🐦' }
+            ];
+
+            const fitnessQuests = [
+                { id: 'squats20', name: 'Сделать 20 приседаний', reward: 300, icon: '🦵' },
+                { id: 'water', name: 'Выпить 2л воды сегодня', reward: 200, icon: '💧' }
+            ];
+
+            const claimQuest = (quest) => {
+                if (gameState.completedQuests.includes(quest.id)) return;
+                
+                setQuestLoading(quest.id);
+                
+                setTimeout(() => {
+                    setGameState(prev => ({
+                        ...prev,
+                        balance: prev.balance + quest.reward,
+                        completedQuests: [...prev.completedQuests, quest.id]
+                    }));
+                    setQuestLoading(null);
+                }, 3000);
+            };
+
+            const connectWallet = () => {
+                setGameState(prev => ({ ...prev, walletConnected: true }));
+            };
+
+            const copyAddress = () => {
+                navigator.clipboard.writeText('EQA1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4b29');
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-2 sm:p-4">
+                    {/* Phone Frame Wrapper */}
+                    <div className="w-full max-w-[450px] min-h-[700px] max-h-[900px] bg-gradient-to-b from-[#0a0a15] to-[#1a1a2e] rounded-3xl overflow-hidden shadow-2xl border border-cyan-900/30 flex flex-col">
+                        
+                        {/* Top Status Bar */}
+                        <div className="flex items-center justify-between p-3 bg-black/30">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                                    <UserIcon className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-white text-sm font-medium">Атлет_2077</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1 bg-yellow-900/30 px-2 py-1 rounded-full border border-yellow-500/30">
+                                    <span className="text-yellow-400 text-lg">🍌</span>
+                                    <span className="text-yellow-400 font-bold text-sm">{gameState.balance.toLocaleString()}</span>
+                                </div>
+                                <div className="flex items-center gap-1 bg-cyan-900/30 px-2 py-1 rounded-full border border-cyan-500/30">
+                                    <ZapIcon className="w-4 h-4 text-cyan-400" />
+                                    <span className="text-cyan-400 font-bold text-sm">{gameState.energy}/{gameState.maxEnergy}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Main Content Area */}
+                        <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
+                            {activeTab === 'gym' && (
+                                <GymScreen 
+                                    gameState={gameState}
+                                    workouts={workouts}
+                                    isTraining={isTraining}
+                                    trainingProgress={trainingProgress}
+                                    currentWorkout={currentWorkout}
+                                    startWorkout={startWorkout}
+                                />
+                            )}
+                            {activeTab === 'dna' && (
+                                <DNALabScreen 
+                                    gameState={gameState}
+                                    isOpeningCapsule={isOpeningCapsule}
+                                    openCapsule={openCapsule}
+                                    totalGeneBonus={totalGeneBonus}
+                                />
+                            )}
+                            {activeTab === 'quests' && (
+                                <QuestsScreen 
+                                    gameState={gameState}
+                                    socialQuests={socialQuests}
+                                    fitnessQuests={fitnessQuests}
+                                    questLoading={questLoading}
+                                    claimQuest={claimQuest}
+                                />
+                            )}
+                            {activeTab === 'wallet' && (
+                                <WalletScreen 
+                                    gameState={gameState}
+                                    connectWallet={connectWallet}
+                                    copyAddress={copyAddress}
+                                    copied={copied}
+                                    setShowWithdrawModal={setShowWithdrawModal}
+                                />
+                            )}
+                        </div>
+
+                        {/* Bottom Navigation */}
+                        <div className="bg-black/50 border-t border-cyan-900/30 p-2">
+                            <div className="flex justify-around">
+                                {[
+                                    { id: 'gym', icon: DumbbellIcon, label: 'Зал' },
+                                    { id: 'dna', icon: DnaIcon, label: 'ДНК Лаб' },
+                                    { id: 'quests', icon: CheckSquareIcon, label: 'Квесты' },
+                                    { id: 'wallet', icon: WalletIcon, label: 'Кошелёк' }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
+                                            activeTab === tab.id ? 'tab-active' : 'text-gray-500'
+                                        }`}
+                                    >
+                                        <tab.icon className="w-6 h-6" />
+                                        <span className="text-xs font-medium">{tab.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Success Modal */}
+                    {showSuccessModal && successData && (
+                        <Modal onClose={() => setShowSuccessModal(false)}>
+                            <div className="text-center">
+                                <div className="text-6xl mb-4">🎉</div>
+                                <h2 className="text-2xl font-bold text-cyan-400 font-cyber mb-2">ТРЕНИРОВКА ЗАВЕРШЕНА!</h2>
+                                <p className="text-gray-400 mb-4">{successData.workout}</p>
+                                <div className="space-y-2 mb-6">
+                                    <div className="flex justify-center items-center gap-2 text-yellow-400">
+                                        <span className="text-2xl">🍌</span>
+                                        <span className="text-xl font-bold">+{successData.bulv} $BULV</span>
+                                    </div>
+                                    {successData.str > 0 && (
+                                        <p className="text-red-400">+{successData.str} Сила</p>
+                                    )}
+                                    {successData.mas > 0 && (
+                                        <p className="text-green-400">+{successData.mas} Масса</p>
+                                    )}
+                                    {successData.end > 0 && (
+                                        <p className="text-blue-400">+{successData.end} Выносливость</p>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={() => setShowSuccessModal(false)}
+                                    className="btn-cyber px-6 py-2 rounded-xl font-bold text-white"
+                                >
+                                    Отлично!
+                                </button>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {/* Gene Discovery Modal */}
+                    {showGeneModal && newGene && (
+                        <Modal onClose={() => setShowGeneModal(false)}>
+                            <div className="text-center">
+                                <div className="text-6xl mb-4">
+                                    {newGene.rarity === 'legendary' ? '✨' : newGene.rarity === 'rare' ? '💎' : '🧬'}
+                                </div>
+                                <h2 className={`text-2xl font-bold font-cyber mb-2 ${
+                                    newGene.rarity === 'legendary' ? 'text-yellow-400 gold-text' :
+                                    newGene.rarity === 'rare' ? 'text-cyan-400 neon-text' : 'text-gray-400'
+                                }`}>
+                                    {newGene.rarity === 'legendary' ? 'ЛЕГЕНДАРНЫЙ!' :
+                                     newGene.rarity === 'rare' ? 'РЕДКИЙ!' : 'ОБЫЧНЫЙ'}
+                                </h2>
+                                <p className="text-xl text-white mb-2">{newGene.name}</p>
+                                <p className={`text-lg mb-6 ${
+                                    newGene.rarity === 'legendary' ? 'text-yellow-400' :
+                                    newGene.rarity === 'rare' ? 'text-cyan-400' : 'text-gray-400'
+                                }`}>
+                                    +{newGene.bonus}% к наградам за тренировки
+                                </p>
+                                <button 
+                                    onClick={() => setShowGeneModal(false)}
+                                    className={`px-6 py-2 rounded-xl font-bold ${
+                                        newGene.rarity === 'legendary' ? 'btn-gold' : 'btn-cyber text-white'
+                                    }`}
+                                >
+                                    Принять
+                                </button>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {/* Withdraw Modal */}
+                    {showWithdrawModal && (
+                        <Modal onClose={() => setShowWithdrawModal(false)}>
+                            <div className="text-center">
+                                <div className="text-6xl mb-4">🔒</div>
+                                <h2 className="text-xl font-bold text-cyan-400 font-cyber mb-4">ВЫВОД НЕДОСТУПЕН</h2>
+                                <p className="text-gray-400 mb-6">
+                                    Вывод $BULV будет доступен после окончания пресейла и официального листинга токена.
+                                </p>
+                                <button 
+                                    onClick={() => setShowWithdrawModal(false)}
+                                    className="btn-cyber px-6 py-2 rounded-xl font-bold text-white"
+                                >
+                                    Понятно
+                                </button>
+                            </div>
+                        </Modal>
+                    )}
+                </div>
+            );
+        }
+
+        // Modal Component
+        function Modal({ children, onClose }) {
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+                    <div 
+                        className="card-glass rounded-2xl p-6 max-w-sm w-full relative neon-glow"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <button 
+                            onClick={onClose}
+                            className="absolute top-3 right-3 text-gray-500 hover:text-white"
+                        >
+                            <XIcon className="w-5 h-5" />
+                        </button>
+                        {children}
+                    </div>
+                </div>
+            );
+        }
+
+        // Gym Screen Component
+        function GymScreen({ gameState, workouts, isTraining, trainingProgress, currentWorkout, startWorkout }) {
+            return (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold font-cyber text-cyan-400 neon-text">ТРЕНАЖЁРНЫЙ ЗАЛ</h1>
+                        <p className="text-gray-500 text-sm">Качай своего атлета</p>
+                    </div>
+
+                    {/* Athlete Character */}
+                    <div className="athlete-container flex justify-center">
+                        <div className="athlete-glow"></div>
+                        <div className={`relative w-48 h-48 rounded-full bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border-2 border-cyan-500/50 flex items-center justify-center ${isTraining ? 'glow-pulse' : ''}`}>
+                            <div className="text-8xl">🏋️</div>
+                            
+                            {/* Training Overlay */}
+                            {isTraining && currentWorkout && (
+                                <div className="absolute inset-0 bg-black/70 rounded-full flex flex-col items-center justify-center">
+                                    <span className="text-4xl mb-2">{currentWorkout.icon}</span>
+                                    <span className="text-cyan-400 font-bold text-lg">{Math.round(trainingProgress)}%</span>
+                                    <div className="w-24 h-2 progress-bar mt-2">
+                                        <div 
+                                            className="h-full progress-fill-energy transition-all"
+                                            style={{ width: `${trainingProgress}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="card-glass rounded-xl p-4 space-y-3">
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase">Характеристики</h3>
+                        
+                        <div className="space-y-2">
+                            <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-red-400">💪 Сила (STR)</span>
+                                    <span className="text-white font-bold">{gameState.stats.str}</span>
+                                </div>
+                                <div className="progress-bar h-2">
+                                    <div className="progress-fill-str h-full" style={{ width: `${Math.min(100, gameState.stats.str)}%` }} />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-green-400">🦾 Масса (MAS)</span>
+                                    <span className="text-white font-bold">{gameState.stats.mas}</span>
+                                </div>
+                                <div className="progress-bar h-2">
+                                    <div className="progress-fill-mas h-full" style={{ width: `${Math.min(100, gameState.stats.mas)}%` }} />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-blue-400">🫀 Выносливость (END)</span>
+                                    <span className="text-white font-bold">{gameState.stats.end}</span>
+                                </div>
+                                <div className="progress-bar h-2">
+                                    <div className="progress-fill-end h-full" style={{ width: `${Math.min(100, gameState.stats.end)}%` }} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Workout Options */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase">Начать тренировку</h3>
+                        
+                        {workouts.map(workout => (
+                            <button
+                                key={workout.id}
+                                onClick={() => startWorkout(workout)}
+                                disabled={gameState.energy < workout.energyCost || isTraining}
+                                className={`w-full card-glass rounded-xl p-4 text-left transition-all ${
+                                    gameState.energy >= workout.energyCost && !isTraining
+                                        ? 'hover:border-cyan-400 cursor-pointer'
+                                        : 'opacity-50 cursor-not-allowed'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl">{workout.icon}</span>
+                                    <div className="flex-1">
+                                        <h4 className="text-white font-bold">{workout.name}</h4>
+                                        <div className="flex flex-wrap gap-2 text-xs text-gray-400 mt-1">
+                                            <span className="flex items-center gap-1">
+                                                <ZapIcon className="w-3 h-3 text-cyan-400" />
+                                                {workout.energyCost}
+                                            </span>
+                                            <span>⏱ {workout.duration}с</span>
+                                            <span className="text-yellow-400">+{workout.bulvReward} $BULV</span>
+                                        </div>
+                                        <div className="flex gap-2 text-xs mt-1">
+                                            {workout.strGain > 0 && <span className="text-red-400">+{workout.strGain} STR</span>}
+                                            {workout.masGain > 0 && <span className="text-green-400">+{workout.masGain} MAS</span>}
+                                            {workout.endGain > 0 && <span className="text-blue-400">+{workout.endGain} END</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // DNA Lab Screen Component
+        function DNALabScreen({ gameState, isOpeningCapsule, openCapsule, totalGeneBonus }) {
+            const canOpen = gameState.capsules > 0 || gameState.balance >= 500;
+
+            return (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold font-cyber text-cyan-400 neon-text">ДНК ЛАБОРАТОРИЯ</h1>
+                        <p className="text-gray-500 text-sm">Улучшай генетику атлета</p>
+                    </div>
+
+                    {/* Capsules Count */}
+                    <div className="card-glass rounded-xl p-4 text-center">
+                        <p className="text-gray-400 text-sm">Капсул в наличии</p>
+                        <p className="text-4xl font-bold text-cyan-400 font-cyber">{gameState.capsules}</p>
+                        {gameState.capsules === 0 && (
+                            <p className="text-xs text-yellow-400 mt-1">Открыть за 500 $BULV</p>
+                        )}
+                    </div>
+
+                    {/* Capsule Container */}
+                    <div className="capsule-container flex justify-center py-8">
+                        <div className={`capsule relative ${isOpeningCapsule ? 'shake' : ''}`}>
+                            <div className={`w-40 h-56 rounded-3xl bg-gradient-to-b from-cyan-600 via-cyan-800 to-blue-900 flex items-center justify-center border-4 border-cyan-400/50 ${isOpeningCapsule ? 'glow-pulse' : 'neon-glow'}`}>
+                                <div className="text-center">
+                                    <DnaIcon className="w-16 h-16 text-cyan-300 mx-auto mb-2" />
+                                    <span className="text-xs text-cyan-300 font-bold">КИБЕР ДНК</span>
+                                </div>
+                            </div>
+                            {/* Shine effect */}
+                            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
+                        </div>
+                    </div>
+
+                    {/* Open Button */}
+                    <button
+                        onClick={openCapsule}
+                        disabled={!canOpen || isOpeningCapsule}
+                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
+                            canOpen && !isOpeningCapsule
+                                ? 'btn-cyber text-white'
+                                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                        {isOpeningCapsule ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <LoaderIcon className="w-5 h-5" />
+                                Открываем...
+                            </span>
+                        ) : (
+                            <>🧬 Вскрыть капсулу</>
+                        )}
+                    </button>
+
+                    {/* Total Bonus */}
+                    {totalGeneBonus > 0 && (
+                        <div className="card-glass rounded-xl p-3 text-center border-yellow-500/30">
+                            <p className="text-gray-400 text-sm">Суммарный бонус</p>
+                            <p className="text-2xl font-bold text-yellow-400 gold-text">+{totalGeneBonus}%</p>
+                        </div>
+                    )}
+
+                    {/* Active Genes */}
+                    {gameState.genes.length > 0 && (
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase">Активные гены</h3>
+                            <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
+                                {gameState.genes.map(gene => (
+                                    <div 
+                                        key={gene.id}
+                                        className={`rounded-xl p-3 border ${
+                                            gene.rarity === 'legendary' ? 'gene-card-legendary border-yellow-500/50' :
+                                            gene.rarity === 'rare' ? 'gene-card-rare border-cyan-500/50' :
+                                            'gene-card-common border-gray-600/50'
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xl">
+                                                    {gene.rarity === 'legendary' ? '✨' : gene.rarity === 'rare' ? '💎' : '🧬'}
+                                                </span>
+                                                <span className={`font-medium ${
+                                                    gene.rarity === 'legendary' ? 'text-yellow-400' :
+                                                    gene.rarity === 'rare' ? 'text-cyan-400' : 'text-gray-400'
+                                                }`}>
+                                                    {gene.name}
+                                                </span>
+                                            </div>
+                                            <span className={`font-bold ${
+                                                gene.rarity === 'legendary' ? 'text-yellow-400' :
+                                                gene.rarity === 'rare' ? 'text-cyan-400' : 'text-gray-400'
+                                            }`}>
+                                                +{gene.bonus}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Quests Screen Component
+        function QuestsScreen({ gameState, socialQuests, fitnessQuests, questLoading, claimQuest }) {
+            const [activeSubTab, setActiveSubTab] = useState('social');
+
+            const quests = activeSubTab === 'social' ? socialQuests : fitnessQuests;
+
+            return (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold font-cyber text-cyan-400 neon-text">КВЕСТЫ</h1>
+                        <p className="text-gray-500 text-sm">Выполняй задания и зарабатывай</p>
+                    </div>
+
+                    {/* Sub Tabs */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setActiveSubTab('social')}
+                            className={`flex-1 py-2 rounded-xl font-semibold transition-all ${
+                                activeSubTab === 'social'
+                                    ? 'bg-cyan-600 text-white'
+                                    : 'bg-gray-800 text-gray-400'
+                            }`}
+                        >
+                            Социальные
+                        </button>
+                        <button
+                            onClick={() => setActiveSubTab('fitness')}
+                            className={`flex-1 py-2 rounded-xl font-semibold transition-all ${
+                                activeSubTab === 'fitness'
+                                    ? 'bg-cyan-600 text-white'
+                                    : 'bg-gray-800 text-gray-400'
+                            }`}
+                        >
+                            Фитнес
+                        </button>
+                    </div>
+
+                    {/* Quest List */}
+                    <div className="space-y-3">
+                        {quests.map(quest => {
+                            const isCompleted = gameState.completedQuests.includes(quest.id);
+                            const isLoading = questLoading === quest.id;
+
+                            return (
+                                <div key={quest.id} className="card-glass rounded-xl p-4">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-3xl">{quest.icon}</span>
+                                        <div className="flex-1">
+                                            <h4 className="text-white font-medium">{quest.name}</h4>
+                                            <p className="text-yellow-400 text-sm">+{quest.reward} $BULV</p>
+                                        </div>
+                                        <button
+                                            onClick={() => claimQuest(quest)}
+                                            disabled={isCompleted || isLoading}
+                                            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                                                isCompleted
+                                                    ? 'bg-green-600/30 text-green-400 cursor-default'
+                                                    : isLoading
+                                                    ? 'bg-gray-600 text-gray-400 cursor-wait'
+                                                    : 'btn-cyber text-white'
+                                            }`}
+                                        >
+                                            {isLoading ? (
+                                                <LoaderIcon className="w-5 h-5" />
+                                            ) : isCompleted ? (
+                                                <span className="flex items-center gap-1">
+                                                    <CheckIcon className="w-4 h-4" />
+                                                    Готово
+                                                </span>
+                                            ) : (
+                                                'Выполнить'
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Progress */}
+                    <div className="card-glass rounded-xl p-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Прогресс</span>
+                            <span className="text-cyan-400 font-bold">
+                                {gameState.completedQuests.length} / {socialQuests.length + fitnessQuests.length}
+                            </span>
+                        </div>
+                        <div className="progress-bar h-2 mt-2">
+                            <div 
+                                className="progress-fill-energy h-full transition-all"
+                                style={{ width: `${(gameState.completedQuests.length / (socialQuests.length + fitnessQuests.length)) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Wallet Screen Component
+        function WalletScreen({ gameState, connectWallet, copyAddress, copied, setShowWithdrawModal }) {
+            const contractAddress = 'EQA1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4b29';
+
+            const tokenomics = [
+                { label: 'Игровая экосистема', percent: 50, color: 'bg-cyan-500' },
+                { label: 'Маркетинг и Airdrops', percent: 25, color: 'bg-yellow-500' },
+                { label: 'Команда и Ликвидность', percent: 25, color: 'bg-purple-500' }
+            ];
+
+            return (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold font-cyber text-cyan-400 neon-text">КОШЕЛЁК</h1>
+                        <p className="text-gray-500 text-sm">Web3 интеграция</p>
+                    </div>
+
+                    {/* Balance Card */}
+                    <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-cyan-900/50 via-blue-900/50 to-purple-900/50 border border-cyan-500/30 neon-glow">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl" />
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500/10 rounded-full blur-3xl" />
+                        
+                        <div className="relative">
+                            <p className="text-gray-400 text-sm mb-1">Ваш баланс</p>
+                            <div className="flex items-center gap-2">
+                                <span className="text-4xl">🍌</span>
+                                <span className="text-4xl font-bold text-white font-cyber">{gameState.balance.toLocaleString()}</span>
+                            </div>
+                            <p className="text-cyan-400 font-semibold mt-1">$BULV</p>
+                        </div>
+                    </div>
+
+                    {/* Token Info */}
+                    <div className="card-glass rounded-xl p-4 space-y-3">
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase">Информация о токене</h3>
+                        
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Название</span>
+                                <span className="text-white font-bold">BULVARA</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Тикер</span>
+                                <span className="text-yellow-400 font-bold">$BULV</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Общее предложение</span>
+                                <span className="text-cyan-400 font-bold">10,000,000,000</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-700">
+                            <p className="text-gray-500 text-xs mb-2">Адрес контракта</p>
+                            <div className="flex items-center gap-2">
+                                <code className="flex-1 text-xs text-cyan-400 bg-black/30 px-2 py-1 rounded truncate">
+                                    {contractAddress}
+                                </code>
+                                <button
+                                    onClick={copyAddress}
+                                    className="p-2 bg-cyan-900/30 rounded-lg hover:bg-cyan-900/50 transition-all"
+                                >
+                                    {copied ? (
+                                        <CheckIcon className="w-4 h-4 text-green-400" />
+                                    ) : (
+                                        <CopyIcon className="w-4 h-4 text-cyan-400" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Wallet Connection */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={connectWallet}
+                            disabled={gameState.walletConnected}
+                            className={`w-full py-3 rounded-xl font-bold transition-all ${
+                                gameState.walletConnected
+                                    ? 'bg-green-900/30 border border-green-500/50 text-green-400 cursor-default'
+                                    : 'btn-cyber text-white'
+                            }`}
+                        >
+                            {gameState.walletConnected ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                                    Подключён: EQA1...4b29
+                                </span>
+                            ) : (
+                                <>💎 Подключить TON Кошелёк</>
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => setShowWithdrawModal(true)}
+                            disabled={!gameState.walletConnected}
+                            className={`w-full py-3 rounded-xl font-bold transition-all ${
+                                gameState.walletConnected
+                                    ? 'btn-gold'
+                                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                            }`}
+                        >
+                            📤 Вывести $BULV
+                        </button>
+                    </div>
+
+                    {/* Tokenomics */}
+                    <div className="card-glass rounded-xl p-4 space-y-4">
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase">Токеномика</h3>
+                        
+                        {/* Chart Bar */}
+                        <div className="flex h-4 rounded-full overflow-hidden">
+                            {tokenomics.map((item, i) => (
+                                <div 
+                                    key={i}
+                                    className={`${item.color} transition-all`}
+                                    style={{ width: `${item.percent}%` }}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Legend */}
+                        <div className="space-y-2">
+                            {tokenomics.map((item, i) => (
+                                <div key={i} className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                                        <span className="text-gray-400">{item.label}</span>
+                                    </div>
+                                    <span className="text-white font-bold">{item.percent}%</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

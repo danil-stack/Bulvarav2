@@ -14,8 +14,8 @@ import AdminPanel from './components/AdminPanel';
 
 export type Screen = 'home' | 'incubator' | 'training' | 'arena' | 'shop' | 'wallet' | 'admin';
 
-// Bottom-nav tabs (Incubator/Admin are reached via buttons, not the tab bar).
-const TAB_SCREENS: Screen[] = ['home', 'training', 'arena', 'shop', 'wallet'];
+// Bottom-nav tabs. Admin is reached via the header shield icon, not the tab bar.
+const TAB_SCREENS: Screen[] = ['home', 'incubator', 'training', 'arena', 'shop', 'wallet'];
 
 const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
 

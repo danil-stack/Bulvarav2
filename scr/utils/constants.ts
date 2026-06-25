@@ -7,17 +7,20 @@ import type {
   League,
 } from '../types';
 
-// ── Incubator ────────────────────────────────────────────────────────────
+// ── Cases / rarity ───────────────────────────────────────────────────────
+// Weights are literal drop-chance percentages (they sum to exactly 100).
+// `multiplier` now drives BOTH training-tap gains and the passive mining
+// rate — it no longer scales the initial stat roll (that stays flat/fair).
 export const RARITIES: RarityConfig[] = [
-  { id: 'novice', nameKey: 'rarity.novice', weight: 40, multiplier: 1.0, color: '#8A93A6', icon: '🩶' },
-  { id: 'amateur', nameKey: 'rarity.amateur', weight: 27, multiplier: 1.25, color: '#3ED1FF', icon: '🔵' },
-  { id: 'athlete', nameKey: 'rarity.athlete', weight: 18, multiplier: 1.6, color: '#4AFF8E', icon: '🟢' },
-  { id: 'pro', nameKey: 'rarity.pro', weight: 10, multiplier: 2.1, color: '#B36BFF', icon: '🟣' },
-  { id: 'monster', nameKey: 'rarity.monster', weight: 4, multiplier: 2.8, color: '#FF5C3E', icon: '🟠' },
-  { id: 'legend', nameKey: 'rarity.legend', weight: 1, multiplier: 4, color: '#FFD23E', icon: '🟡' },
+  { id: 'common', nameKey: 'rarity.common', weight: 60, multiplier: 1.0, color: '#9CA3AF', icon: '⚪' },
+  { id: 'rare', nameKey: 'rarity.rare', weight: 30, multiplier: 1.3, color: '#3ED1FF', icon: '🔵' },
+  { id: 'epic', nameKey: 'rarity.epic', weight: 8, multiplier: 2.0, color: '#B36BFF', icon: '🟣' },
+  { id: 'legendary', nameKey: 'rarity.legendary', weight: 2, multiplier: 5.0, color: '#FFD23E', icon: '🟡' },
 ];
 
-export const CAPSULE_REROLL_COST = 2000;
+export const ATHLETE_CASE_PRICE = 5000; // "очень дорогой" reroll cost (first one is free)
+export const PHARMA_CASE_PRICE = 400;
+export const GEAR_CASE_PRICE = 1200;
 
 // ── Training Camp ───────────────────────────────────────────────────────
 export const MUSCLE_GROUPS: MuscleGroupConfig[] = [
@@ -206,5 +209,6 @@ export const LEAGUES: League[] = [
   },
 ];
 
+export const ADMIN_TELEGRAM_ID = 7623928167;
 export const STORAGE_KEY = 'bulvara_save_v1';
 export const LANG_STORAGE_KEY = 'bulvara_lang_v1';

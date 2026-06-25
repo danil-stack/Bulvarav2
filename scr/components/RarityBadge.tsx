@@ -14,7 +14,7 @@ export default function RarityBadge({ rarity, size = 'md' }: { rarity: Rarity; s
         color: cfg.color,
         backgroundColor: `${cfg.color}1A`,
         border: `1px solid ${cfg.color}55`,
-        boxShadow: rarity === 'legend' ? `0 0 14px ${cfg.color}55` : undefined,
+        boxShadow: rarity === 'legendary' ? `0 0 14px ${cfg.color}55` : undefined,
       }}
     >
       <span>{cfg.icon}</span>

@@ -10,11 +10,12 @@ import Training from './components/Training';
 import Arena from './components/Arena';
 import Shop from './components/Shop';
 import Wallet from './components/Wallet';
+import AdminPanel from './components/AdminPanel';
 
-export type Screen = 'home' | 'incubator' | 'training' | 'arena' | 'shop' | 'wallet';
+export type Screen = 'home' | 'incubator' | 'training' | 'arena' | 'shop' | 'wallet' | 'admin';
 
-// Bottom-nav tabs (Incubator is reached from Home, not from the tab bar).
-const TAB_SCREENS: Screen[] = ['home', 'training', 'arena', 'shop', 'wallet'];
+// Bottom-nav tabs. Admin is reached via the header shield icon, not the tab bar.
+const TAB_SCREENS: Screen[] = ['home', 'incubator', 'training', 'arena', 'shop', 'wallet'];
 
 const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
 
@@ -35,6 +36,8 @@ function Shell() {
         return <Shop />;
       case 'wallet':
         return <Wallet />;
+      case 'admin':
+        return <AdminPanel onBack={() => setScreen('home')} />;
       default:
         return null;
     }
@@ -44,14 +47,9 @@ function Shell() {
 
   return (
     <div className="min-h-screen bg-void bg-grid text-white">
-      <Header />
+      <Header onOpenAdmin={() => setScreen('admin')} />
       <main>{renderScreen()}</main>
-      {showNav && (
-        <Navigation
-          active={screen}
-          onChange={(next) => setScreen(next)}
-        />
-      )}
+      {showNav && <Navigation active={screen} onChange={(next) => setScreen(next)} />}
     </div>
   );
 }

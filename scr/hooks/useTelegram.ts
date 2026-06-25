@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ADMIN_TELEGRAM_ID } from '../utils/constants';
 
 interface TelegramUser {
   id: number;
@@ -52,5 +53,11 @@ export function useTelegram() {
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(type);
   }
 
-  return { user, haptic, hapticNotify };
+  // Real Telegram ID match → admin. The `import.meta.env.DEV && !user` part
+  // is just a local-dev convenience (true only in `npm run dev`, never in a
+  // production build) so you can see the admin panel while testing outside
+  // Telegram. It has zero effect once you `npm run build`.
+  const isAdmin = user?.id === ADMIN_TELEGRAM_ID || (import.meta.env.DEV && !user);
+
+  return { user, haptic, hapticNotify, isAdmin };
 }

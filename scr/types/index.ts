@@ -1,12 +1,12 @@
 // ── Core domain types for the Bulvara fitness RPG ──────────────────────────
 
-export type Rarity = 'novice' | 'amateur' | 'athlete' | 'pro' | 'monster' | 'legend';
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 export interface RarityConfig {
   id: Rarity;
   nameKey: string;
-  weight: number; // mint probability weight
-  multiplier: number; // base stat multiplier
+  weight: number; // drop chance, % (all weights sum to 100)
+  multiplier: number; // training-gain & mining-rate multiplier
   color: string; // hex accent
   icon: string; // emoji glyph used as avatar placeholder
 }

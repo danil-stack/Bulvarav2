@@ -6,6 +6,7 @@ import {
   BASE_MINING_RATE_PER_HOUR,
   MASS_MINING_COEFFICIENT,
 } from './constants';
+import { getRarityConfig } from './rarity';
 
 export function getGearBonus(state: GameState, type: 'mining' | 'energyMax' | 'crit' | 'strength'): number {
   return GEAR_ITEMS.filter((g) => state.ownedGear[g.id] && g.effect.type === type).reduce(
@@ -41,12 +42,19 @@ export function getEffectiveStrength(state: GameState): number {
   return Math.round(state.athlete.stats.strength * (1 + (gearBonus + boostBonus) / 100));
 }
 
+/** The Common/Rare/Epic/Legendary case-rarity multiplier (1 / 1.3 / 2 / 5). */
+export function getRarityMultiplier(state: GameState): number {
+  if (!state.athlete) return 1;
+  return getRarityConfig(state.athlete.rarity).multiplier;
+}
+
 export function getMiningRatePerHour(state: GameState): number {
   if (!state.athlete) return 0;
   const base = BASE_MINING_RATE_PER_HOUR + state.athlete.stats.mass * MASS_MINING_COEFFICIENT;
   const gearBonus = getGearBonus(state, 'mining');
   const boostBonus = getActiveBoostBonus(state, 'mining') + getActiveBoostBonus(state, 'miningBoost');
-  return base * (1 + (gearBonus + boostBonus) / 100);
+  const rarityMult = getRarityMultiplier(state);
+  return base * (1 + (gearBonus + boostBonus) / 100) * rarityMult;
 }
 
 export function getPower(state: GameState): number {

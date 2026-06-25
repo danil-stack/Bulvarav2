@@ -1,10 +1,17 @@
+import { ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGame } from '../contexts/GameContext';
+import { useTelegram } from '../hooks/useTelegram';
 import { formatBulv } from '../utils/format';
 
-export default function Header() {
+interface HeaderProps {
+  onOpenAdmin?: () => void;
+}
+
+export default function Header({ onOpenAdmin }: HeaderProps) {
   const { t, lang, toggleLang } = useLanguage();
   const { state } = useGame();
+  const { isAdmin } = useTelegram();
 
   return (
     <header className="safe-top sticky top-0 z-30 border-b border-surface-line bg-void/90 backdrop-blur-md">
@@ -24,6 +31,15 @@ export default function Header() {
             <span className="text-sm">💎</span>
             <span className="font-mono text-sm font-bold text-bulv">{formatBulv(state.bulv)}</span>
           </div>
+          {isAdmin && onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-bulv/40 bg-bulv/10 text-bulv active:scale-95"
+              aria-label="admin panel"
+            >
+              <ShieldCheck size={15} />
+            </button>
+          )}
           <button
             onClick={toggleLang}
             className="flex h-8 w-8 items-center justify-center rounded-full border border-surface-line bg-surface text-[11px] font-bold text-white/70 active:scale-95"

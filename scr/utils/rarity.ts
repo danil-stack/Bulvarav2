@@ -18,23 +18,24 @@ export function rollRarity(): Rarity {
   return RARITIES[0].id;
 }
 
-function baseStat(multiplier: number): number {
-  const raw = 6 + Math.random() * 6; // 6..12 base roll
-  return Math.round(raw * multiplier);
+// Flat, rarity-independent base roll — fairness at mint time. The rarity's
+// payoff comes from its training/mining multiplier (see utils/selectors.ts),
+// not from bigger starting numbers.
+function baseStat(): number {
+  return Math.round(6 + Math.random() * 6); // 6..12
 }
 
-export function generateStats(rarity: Rarity): Stats {
-  const { multiplier } = getRarityConfig(rarity);
+export function generateStats(): Stats {
   return {
-    strength: baseStat(multiplier),
-    mass: baseStat(multiplier),
-    stamina: Math.max(40, Math.round(baseStat(multiplier) * 4)),
-    genetics: baseStat(multiplier),
+    strength: baseStat(),
+    mass: baseStat(),
+    stamina: Math.max(40, baseStat() * 4),
+    genetics: baseStat(),
   };
 }
 
 export function createAthlete(rarity: Rarity): Athlete {
-  const stats = generateStats(rarity);
+  const stats = generateStats();
   return {
     id: `athlete_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     rarity,

@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-client';
 
-// Инициализируем защищенное подключение к твоей базе Supabase
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+// Инициализируем защищенное подключение к твоей базе const supabaseUrl = "https://donljbywsnzvsaykjnbo.supabase.co";
+const supabaseUrl = "https://donljbywsnzvsaykjnbo.supabase.co";
+const supabaseAnonKey = "sb_publishable_ygvu1F18sFSxpyS5hbZWWw_Lqxhzm7k";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 export default async function handler(req, res) {
   // Настройка CORS, чтобы Mini App мог делать запросы к бэкенду
   res.setHeader('Access-Control-Allow-Credentials', true);

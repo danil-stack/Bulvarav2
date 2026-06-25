@@ -5,6 +5,7 @@ import type {
   MuscleGroup,
   Stats,
   StatKey,
+  Rarity,
   ArenaResult,
   ActiveBoost,
   PharmaItem,
@@ -174,6 +175,14 @@ interface GameContextValue {
   enterArena: (leagueId: string) => ArenaActionResult;
   openPharmaCase: () => PharmaCaseResult;
   openGearCase: () => GearCaseResult;
+  // ── Admin-only (gated in the UI, not here — see AdminPanel.tsx) ────────
+  adminGiveBulv: (amount: number) => void;
+  adminSetAthleteRarity: (rarity: Rarity) => void;
+  adminMaxStats: () => void;
+  adminFullEnergy: () => void;
+  adminUnlockAllGear: () => void;
+  adminResetCooldowns: () => void;
+  adminResetSave: () => void;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
@@ -409,6 +418,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, item };
   }
 
+  // ── Admin tools ──────────────────────────────────────────────────────
+  // These deliberately skip every price/cooldown/ownership check — that's
+  // the point of an admin panel. UI access is gated by Telegram ID in
+  // AdminPanel.tsx / useTelegram.ts, not here.
+
+  function adminGiveBulv(amount: number) {
+    setState((prev) => ({ ...prev, bulv: Math.max(0, prev.bulv + amount) }));
+  }
+
+  function adminSetAthleteRarity(rarity: Rarity) {
+    setState((prev) => ({ ...prev, athlete: createAthlete(rarity) }));
+  }
+
+  function adminMaxStats() {
+    setState((prev) =>
+      prev.athlete
+        ? { ...prev, athlete: { ...prev.athlete, stats: { strength: 999, mass: 999, stamina: 999, genetics: 999 } } }
+        : prev
+    );
+  }
+
+  function adminFullEnergy() {
+    setState((prev) => {
+      if (!prev.athlete) return prev;
+      const max = getEnergyMax(prev);
+      return { ...prev, athlete: { ...prev.athlete, energy: max } };
+    });
+  }
+
+  function adminUnlockAllGear() {
+    setState((prev) => {
+      const ownedGear = { ...prev.ownedGear };
+      GEAR_ITEMS.forEach((g) => (ownedGear[g.id] = true));
+      return { ...prev, ownedGear };
+    });
+  }
+
+  function adminResetCooldowns() {
+    setState((prev) => ({ ...prev, pharmaCooldowns: {}, nutritionCooldowns: {}, arenaCooldowns: {} }));
+  }
+
+  function adminResetSave() {
+    setState({ ...DEFAULT_STATE, lastTick: Date.now() });
+  }
+
   const value: GameContextValue = {
     state,
     energyMax,
@@ -426,6 +480,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     enterArena,
     openPharmaCase,
     openGearCase,
+    adminGiveBulv,
+    adminSetAthleteRarity,
+    adminMaxStats,
+    adminFullEnergy,
+    adminUnlockAllGear,
+    adminResetCooldowns,
+    adminResetSave,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

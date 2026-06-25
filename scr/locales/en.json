@@ -1,0 +1,207 @@
+{
+  "app": {
+    "name": "BULVARA",
+    "tagline": "Fitness RPG · TON"
+  },
+  "common": {
+    "bulv": "BULV",
+    "level": "Level",
+    "power": "Athlete Power",
+    "close": "Close",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "locked": "Locked",
+    "cooldown": "Cooldown",
+    "ready": "Ready",
+    "owned": "Owned",
+    "buy": "Buy",
+    "use": "Use",
+    "win": "Victory",
+    "lose": "Defeat",
+    "balance": "Balance",
+    "perHour": "/h",
+    "comingSoon": "Coming soon"
+  },
+  "nav": {
+    "home": "Home",
+    "training": "Training",
+    "arena": "Arena",
+    "shop": "Shop",
+    "wallet": "Wallet"
+  },
+  "rarity": {
+    "novice": "Novice",
+    "amateur": "Amateur",
+    "athlete": "Athlete",
+    "pro": "Pro",
+    "monster": "Monster",
+    "legend": "Legend"
+  },
+  "stats": {
+    "strength": "Strength",
+    "mass": "Mass",
+    "stamina": "Stamina",
+    "genetics": "Genetics"
+  },
+  "home": {
+    "greeting": "Hey, {{name}}!",
+    "noAthleteTitle": "A Genetic Capsule awaits",
+    "noAthleteDesc": "You don't have an athlete yet. Open a capsule in the Incubator and start the road to greatness.",
+    "openIncubator": "Open Incubator",
+    "energy": "Energy",
+    "stats": "Stats",
+    "miningRate": "Mining",
+    "totalMined": "Total mined",
+    "quickTrain": "Go train",
+    "athletePower": "Power",
+    "activeBoosts": "Active boosts",
+    "noBoosts": "No active boosts — check Cyber-Pharma"
+  },
+  "incubator": {
+    "title": "Incubator",
+    "subtitle": "A Genetic Capsule contains a random athlete. Rarity defines starting power.",
+    "capsule": "Genetic Capsule",
+    "open": "Open capsule",
+    "opening": "Splicing DNA...",
+    "resultTitle": "Athlete created!",
+    "resultCongrats": "Meet your new fighter",
+    "continue": "To Home",
+    "rerollTitle": "New Capsule",
+    "rerollDesc": "Splice your current athlete and get a new random fighter. All stat progress will be lost.",
+    "rerollButton": "Reroll for {{cost}} BULV",
+    "rerollConfirmTitle": "Reroll for real?",
+    "rerollConfirmDesc": "Your current athlete will be destroyed and stats reset. This can't be undone.",
+    "rerollConfirmButton": "Yes, splice it",
+    "alreadyHave": "Athlete already created"
+  },
+  "training": {
+    "title": "Training Camp",
+    "subtitle": "Spend energy, pump stats. Genetics gives a chance to crit.",
+    "tabCamp": "Workout",
+    "tabNutrition": "Nutrition",
+    "chest": "Chest",
+    "back": "Back",
+    "legs": "Legs",
+    "arms": "Arms",
+    "energyCost": "Energy",
+    "crit": "CRIT!",
+    "noEnergy": "Not enough energy. Refill it in the Nutrition tab.",
+    "tapToTrain": "Tap to train",
+    "critChance": "Crit chance"
+  },
+  "nutrition": {
+    "title": "Nutrition",
+    "subtitle": "Restore energy and keep your mining rate high.",
+    "consume": "Consume",
+    "free": "Free",
+    "onCooldown": "Recovering",
+    "water": {
+      "name": "Water",
+      "desc": "Quick energy top-up. Cheap and simple."
+    },
+    "protein": {
+      "name": "Protein Shake",
+      "desc": "A big chunk of energy for a serious set."
+    },
+    "carbs": {
+      "name": "Carb Load",
+      "desc": "Energy plus a temporary mining rate boost for 30 minutes."
+    },
+    "rest": {
+      "name": "Rest Day",
+      "desc": "Fully restores energy for free. Long cooldown."
+    }
+  },
+  "pharma": {
+    "title": "Cyber-Pharma",
+    "subtitle": "Powerful boosts with high risk. Use with caution.",
+    "risk": "Side-effect risk",
+    "duration": "Duration",
+    "instant": "Instant",
+    "buy": "Take it",
+    "success": "The effect kicked in!",
+    "fail": "Side effect! The result was worse than expected.",
+    "activeUntil": "Active for",
+    "titan": {
+      "name": "Titan-Serum",
+      "desc": "+50% Strength for 1 hour. Pure power in a vial."
+    },
+    "adrenaline": {
+      "name": "Adrenaline Shot",
+      "desc": "+100% mining rate for 15 minutes."
+    },
+    "gh9": {
+      "name": "Growth Hormone GH-9",
+      "desc": "Permanently increases Mass. Carries an injury risk."
+    },
+    "mutagen": {
+      "name": "Mutagen X",
+      "desc": "Mutates Genetics. High risk, high reward."
+    }
+  },
+  "gear": {
+    "title": "Gear",
+    "subtitle": "Permanent passive bonuses. Buy once — works forever.",
+    "shaker": {
+      "name": "Crypto-Shaker",
+      "desc": "+5% BULV mining rate forever."
+    },
+    "sneakers": {
+      "name": "Anti-Gravity Sneakers",
+      "desc": "+10% maximum energy."
+    },
+    "headband": {
+      "name": "Neuro Headband",
+      "desc": "+5% crit chance during training."
+    },
+    "gloves": {
+      "name": "Titanium Gloves",
+      "desc": "+8% Strength in tournaments."
+    }
+  },
+  "shop": {
+    "title": "Shop",
+    "tabPharma": "Cyber-Pharma",
+    "tabGear": "Gear"
+  },
+  "arena": {
+    "title": "Arena",
+    "subtitle": "Enter leagues and fight for $BULV based on your athlete's stats.",
+    "bronze": "Bronze League",
+    "silver": "Silver League",
+    "gold": "Gold League",
+    "diamond": "Diamond League",
+    "entryFee": "Entry fee",
+    "reward": "Reward",
+    "minPower": "Min. power",
+    "enter": "Enter battle",
+    "locked": "Requires {{power}} power",
+    "history": "Battle history",
+    "noHistory": "No battles yet",
+    "yourPower": "Your power",
+    "opponentPower": "Opponent power",
+    "resultWinTitle": "Victory!",
+    "resultLoseTitle": "Defeat",
+    "resultWinDesc": "The opponent was crushed. Reward credited.",
+    "resultLoseDesc": "Not enough power this time. Train harder."
+  },
+  "wallet": {
+    "title": "Wallet",
+    "subtitle": "Connect a TON wallet to get ready for the $BULV mainnet withdrawal.",
+    "connect": "Connect wallet",
+    "connected": "Wallet connected",
+    "address": "Address",
+    "disconnect": "Disconnect",
+    "gameBalance": "Game balance",
+    "network": "TON network",
+    "withdraw": "Withdraw to mainnet",
+    "withdrawDesc": "The $BULV bridge contract is still being prepared for launch. Your game balance will convert to the token after release.",
+    "withdrawDisabled": "Withdrawals opening soon",
+    "notConnected": "Wallet not connected. Connect it to take part in the future $BULV airdrop."
+  },
+  "toast": {
+    "statGain": "+{{value}} {{stat}}",
+    "bulvGain": "+{{value}} BULV",
+    "notEnoughBulv": "Not enough BULV"
+  }
+}

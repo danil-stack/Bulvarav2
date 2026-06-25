@@ -93,12 +93,21 @@ export default function Home({ onNavigate }: HomeProps) {
             )}
           </div>
 
-          <button
-            onClick={() => onNavigate('training')}
-            className="mt-5 w-full rounded-2xl border border-strength/40 bg-strength/10 py-3 text-center font-display text-sm text-strength active:scale-95"
-          >
-            {t('home.quickTrain')} →
-          </button>
+          {/* Always-visible entry points — Cases never disappears after minting */}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => onNavigate('incubator')}
+              className="rounded-2xl border border-bulv/40 bg-bulv/10 py-3 text-center font-display text-sm text-bulv active:scale-95"
+            >
+              📦 {t('nav.cases')}
+            </button>
+            <button
+              onClick={() => onNavigate('training')}
+              className="rounded-2xl border border-strength/40 bg-strength/10 py-3 text-center font-display text-sm text-strength active:scale-95"
+            >
+              {t('home.quickTrain')} →
+            </button>
+          </div>
         </>
       )}
     </div>

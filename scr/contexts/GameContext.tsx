@@ -22,7 +22,6 @@ import {
   GEAR_CASE_PRICE,
   ENERGY_REGEN_TICK_MS,
   ENERGY_REGEN_PER_TICK,
-  STORAGE_KEY,
   MAX_OFFLINE_MS,
   CRIT_MULTIPLIER,
 } from '../utils/constants';
@@ -50,62 +49,18 @@ const DEFAULT_STATE: GameState = {
   arenaHistory: [],
 };
 
-function loadInitialState(): GameState {
+// Функция для безопасного извлечения Telegram ID из WebApp
+function getTelegramId(): number {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_STATE, lastTick: Date.now() };
-    const saved = JSON.parse(raw) as GameState;
-    const merged: GameState = { ...DEFAULT_STATE, ...saved };
-    const now = Date.now();
-    const elapsed = Math.min(now - (merged.lastTick ?? now), MAX_OFFLINE_MS);
-
-    if (merged.athlete && elapsed > 1000) {
-      const rate = getMiningRatePerHour(merged);
-      const mined = (rate / 3_600_000) * elapsed;
-      const energyMax = getEnergyMax(merged);
-      const regen = (elapsed / ENERGY_REGEN_TICK_MS) * ENERGY_REGEN_PER_TICK;
-      merged.bulv += mined;
-      merged.totalMined += mined;
-      merged.athlete = { ...merged.athlete, energy: Math.min(energyMax, merged.athlete.energy + regen) };
+    // @ts-ignore
+    const tg = window.Telegram?.WebApp;
+    if (tg?.initDataUnsafe?.user?.id) {
+      return tg.initDataUnsafe.user.id;
     }
-    merged.activeBoosts = (merged.activeBoosts || []).filter((b) => b.expiresAt > now);
-    merged.lastTick = now;
-    return merged;
-  } catch {
-    return { ...DEFAULT_STATE, lastTick: Date.now() };
+  } catch (e) {
+    console.error("Не удалось получить Telegram ID:", e);
   }
-}
-
-/**
- * Shared pharma-effect resolver used by both the regular Cyber-Pharma shop
- * (buyPharma) and the Cyber-Pharma case (openPharmaCase) so the risk/
- * success logic only lives in one place.
- */
-function applyPharmaOutcome(
-  athlete: Athlete,
-  activeBoosts: ActiveBoost[],
-  item: PharmaItem,
-  failed: boolean
-): { athlete: Athlete; activeBoosts: ActiveBoost[] } {
-  if (item.durationMs > 0) {
-    const value = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
-    return {
-      athlete,
-      activeBoosts: [
-        ...activeBoosts,
-        { sourceId: item.id, type: item.effect.type, value, expiresAt: Date.now() + item.durationMs },
-      ],
-    };
-  }
-  const statKey = item.effect.type as 'mass' | 'genetics';
-  const delta = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
-  return {
-    athlete: {
-      ...athlete,
-      stats: { ...athlete.stats, [statKey]: Math.max(1, athlete.stats[statKey] + delta) },
-    },
-    activeBoosts,
-  };
+  return 123456789; // Дефолтный ID для тестов в обычном браузере
 }
 
 export interface TrainResult {
@@ -160,6 +115,7 @@ export interface GearCaseResult {
 
 interface GameContextValue {
   state: GameState;
+  isLoading: boolean;
   energyMax: number;
   critChance: number;
   effectiveStrength: number;
@@ -175,7 +131,6 @@ interface GameContextValue {
   enterArena: (leagueId: string) => ArenaActionResult;
   openPharmaCase: () => PharmaCaseResult;
   openGearCase: () => GearCaseResult;
-  // ── Admin-only (gated in the UI, not here — see AdminPanel.tsx) ────────
   adminGiveBulv: (amount: number) => void;
   adminSetAthleteRarity: (rarity: Rarity) => void;
   adminMaxStats: () => void;
@@ -187,23 +142,112 @@ interface GameContextValue {
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
 
+function applyPharmaOutcome(
+  athlete: Athlete,
+  activeBoosts: ActiveBoost[],
+  item: PharmaItem,
+  failed: boolean
+): { athlete: Athlete; activeBoosts: ActiveBoost[] } {
+  if (item.durationMs > 0) {
+    const value = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
+    return {
+      athlete,
+      activeBoosts: [
+        ...activeBoosts,
+        { sourceId: item.id, type: item.effect.type, value, expiresAt: Date.now() + item.durationMs },
+      ],
+    };
+  }
+  const statKey = item.effect.type as 'mass' | 'genetics';
+  const delta = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
+  return {
+    athlete: {
+      ...athlete,
+      stats: { ...athlete.stats, [statKey]: Math.max(1, athlete.stats[statKey] + delta) },
+    },
+    activeBoosts,
+  };
+}
+
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<GameState>(loadInitialState);
+  const [state, setState] = useState<GameState>({ ...DEFAULT_STATE, lastTick: Date.now() });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const telegramId = useMemo(() => getTelegramId(), []);
 
-  // Persist to localStorage (debounced) on every state change.
+  // 1. Единоразовая загрузка данных игрока из Supabase при старте приложения
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    async function fetchPlayerData() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch {
-        /* storage unavailable — ignore */
-      }
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [state]);
+        const res = await fetch(`/api/player?telegram_id=${telegramId}`);
+        if (!res.ok) throw new Error('Failed to fetch from DB');
+        const dbData = await res.json();
 
-  // Passive tick: mining, energy regen, boost expiry.
+        if (dbData && dbData.balance !== undefined) {
+          // Восстанавливаем объект GameState из сохраненных полей в базе
+          let loadedState: GameState = {
+            ...DEFAULT_STATE,
+            bulv: dbData.balance,
+            // Если у тебя были другие метаданные, сохраняем их внутри jsonb, либо парсим из opened_cases
+            ...(dbData.opened_cases && typeof dbData.opened_cases === 'object' && !Array.isArray(dbData.opened_cases) 
+              ? dbData.opened_cases 
+              : {})
+          };
+
+          const now = Date.now();
+          const elapsed = Math.min(now - (loadedState.lastTick ?? now), MAX_OFFLINE_MS);
+
+          if (loadedState.athlete && elapsed > 1000) {
+            const rate = getMiningRatePerHour(loadedState);
+            const mined = (rate / 3_600_000) * elapsed;
+            const energyMax = getEnergyMax(loadedState);
+            const regen = (elapsed / ENERGY_REGEN_TICK_MS) * ENERGY_REGEN_PER_TICK;
+            loadedState.bulv += mined;
+            loadedState.totalMined += mined;
+            loadedState.athlete = { ...loadedState.athlete, energy: Math.min(energyMax, loadedState.athlete.energy + regen) };
+          }
+          loadedState.activeBoosts = (loadedState.activeBoosts || []).filter((b) => b.expiresAt > now);
+          loadedState.lastTick = now;
+
+          setState(loadedState);
+        }
+      } catch (err) {
+        console.error("Ошибка загрузки данных, откатываемся на дефолт:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPlayerData();
+  }, [telegramId]);
+
+  // 2. Автоматическое сохранение в Supabase при изменении состояния (Debounced 800ms)
   useEffect(() => {
+    if (isLoading) return; // Не сохраняем дефолтное состояние во время первичной загрузки
+
+    const timeout = setTimeout(async () => {
+      try {
+        // Упаковываем все поля состояния, кроме баланса, в jsonb объект opened_cases для гибкости
+        const { bulv, ...metaState } = state;
+        
+        await fetch('/api/player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: telegramId,
+            balance: Math.round(state.bulv),
+            opened_cases: metaState
+          }),
+        });
+      } catch (err) {
+        console.error("Ошибка автоматического сохранения в Supabase:", err);
+      }
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [state, telegramId, isLoading]);
+
+  // Пассивный тик (майнинг и регенерация энергии)
+  useEffect(() => {
+    if (isLoading) return;
     const interval = setInterval(() => {
       setState((prev) => {
         const now = Date.now();
@@ -227,7 +271,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isLoading]);
 
   const energyMax = useMemo(() => getEnergyMax(state), [state]);
   const critChance = useMemo(() => getCritChance(state), [state]);
@@ -292,8 +336,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (Date.now() < cooldownUntil) return { ok: false, reason: 'cooldown' };
     if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
 
-    const energyMax = getEnergyMax(state);
-    const energyRestored = Math.min(energyMax, state.athlete.energy + (item.effect.energy ?? 0)) - state.athlete.energy;
+    const currentEnergyMax = getEnergyMax(state);
+    const energyRestored = Math.min(currentEnergyMax, state.athlete.energy + (item.effect.energy ?? 0)) - state.athlete.energy;
 
     setState((prev) => {
       if (!prev.athlete) return prev;
@@ -379,7 +423,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, result };
   }
 
-  /** Cyber-Pharma case: pick ANY pharma item with equal odds and apply it immediately. */
   function openPharmaCase(): PharmaCaseResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
     if (state.bulv < PHARMA_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
@@ -402,7 +445,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, item, failed };
   }
 
-  /** Gear case: pick a random NOT-YET-OWNED gear piece with equal odds. */
   function openGearCase(): GearCaseResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
     const available = GEAR_ITEMS.filter((g) => !state.ownedGear[g.id]);
@@ -417,11 +459,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }));
     return { ok: true, item };
   }
-
-  // ── Admin tools ──────────────────────────────────────────────────────
-  // These deliberately skip every price/cooldown/ownership check — that's
-  // the point of an admin panel. UI access is gated by Telegram ID in
-  // AdminPanel.tsx / useTelegram.ts, not here.
 
   function adminGiveBulv(amount: number) {
     setState((prev) => ({ ...prev, bulv: Math.max(0, prev.bulv + amount) }));
@@ -459,12 +496,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, pharmaCooldowns: {}, nutritionCooldowns: {}, arenaCooldowns: {} }));
   }
 
+  function adminUnlockAllGear() {
+    setState((prev) => {
+      const ownedGear = { ...prev.ownedGear };
+      GEAR_ITEMS.forEach((g) => (ownedGear[g.id] = true));
+      return { ...prev, ownedGear };
+    });
+  }
+
   function adminResetSave() {
     setState({ ...DEFAULT_STATE, lastTick: Date.now() });
   }
 
   const value: GameContextValue = {
     state,
+    isLoading,
     energyMax,
     critChance,
     effectiveStrength,

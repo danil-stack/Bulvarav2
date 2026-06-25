@@ -1,12 +1,24 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Athlete, GameState, MuscleGroup, Stats, StatKey, ArenaResult } from '../types';
+import type {
+  Athlete,
+  GameState,
+  MuscleGroup,
+  Stats,
+  StatKey,
+  ArenaResult,
+  ActiveBoost,
+  PharmaItem,
+  GearItem,
+} from '../types';
 import {
   MUSCLE_GROUPS,
   NUTRITION_ITEMS,
   PHARMA_ITEMS,
   GEAR_ITEMS,
   LEAGUES,
-  CAPSULE_REROLL_COST,
+  ATHLETE_CASE_PRICE,
+  PHARMA_CASE_PRICE,
+  GEAR_CASE_PRICE,
   ENERGY_REGEN_TICK_MS,
   ENERGY_REGEN_PER_TICK,
   STORAGE_KEY,
@@ -19,6 +31,7 @@ import {
   getCritChance,
   getEffectiveStrength,
   getMiningRatePerHour,
+  getRarityMultiplier,
   getPower,
 } from '../utils/selectors';
 import { randomInRange } from '../utils/format';
@@ -62,6 +75,38 @@ function loadInitialState(): GameState {
   }
 }
 
+/**
+ * Shared pharma-effect resolver used by both the regular Cyber-Pharma shop
+ * (buyPharma) and the Cyber-Pharma case (openPharmaCase) so the risk/
+ * success logic only lives in one place.
+ */
+function applyPharmaOutcome(
+  athlete: Athlete,
+  activeBoosts: ActiveBoost[],
+  item: PharmaItem,
+  failed: boolean
+): { athlete: Athlete; activeBoosts: ActiveBoost[] } {
+  if (item.durationMs > 0) {
+    const value = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
+    return {
+      athlete,
+      activeBoosts: [
+        ...activeBoosts,
+        { sourceId: item.id, type: item.effect.type, value, expiresAt: Date.now() + item.durationMs },
+      ],
+    };
+  }
+  const statKey = item.effect.type as 'mass' | 'genetics';
+  const delta = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
+  return {
+    athlete: {
+      ...athlete,
+      stats: { ...athlete.stats, [statKey]: Math.max(1, athlete.stats[statKey] + delta) },
+    },
+    activeBoosts,
+  };
+}
+
 export interface TrainResult {
   ok: boolean;
   reason?: 'no_athlete' | 'no_energy';
@@ -99,12 +144,26 @@ export interface RerollResult {
   athlete?: Athlete;
 }
 
+export interface PharmaCaseResult {
+  ok: boolean;
+  reason?: 'no_athlete' | 'no_bulv';
+  item?: PharmaItem;
+  failed?: boolean;
+}
+
+export interface GearCaseResult {
+  ok: boolean;
+  reason?: 'no_athlete' | 'no_bulv' | 'all_owned';
+  item?: GearItem;
+}
+
 interface GameContextValue {
   state: GameState;
   energyMax: number;
   critChance: number;
   effectiveStrength: number;
   miningRatePerHour: number;
+  rarityMultiplier: number;
   power: number;
   mintCapsule: () => Athlete | null;
   rerollCapsule: () => RerollResult;
@@ -113,6 +172,8 @@ interface GameContextValue {
   buyPharma: (itemId: string) => PharmaActionResult;
   buyGear: (itemId: string) => GearActionResult;
   enterArena: (leagueId: string) => ArenaActionResult;
+  openPharmaCase: () => PharmaCaseResult;
+  openGearCase: () => GearCaseResult;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
@@ -163,6 +224,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const critChance = useMemo(() => getCritChance(state), [state]);
   const effectiveStrength = useMemo(() => getEffectiveStrength(state), [state]);
   const miningRatePerHour = useMemo(() => getMiningRatePerHour(state), [state]);
+  const rarityMultiplier = useMemo(() => getRarityMultiplier(state), [state]);
   const power = useMemo(() => getPower(state), [state]);
 
   function mintCapsule(): Athlete | null {
@@ -174,9 +236,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function rerollCapsule(): RerollResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-    if (state.bulv < CAPSULE_REROLL_COST) return { ok: false, reason: 'no_bulv' };
+    if (state.bulv < ATHLETE_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
     const athlete = createAthlete(rollRarity());
-    setState((prev) => ({ ...prev, athlete, bulv: prev.bulv - CAPSULE_REROLL_COST }));
+    setState((prev) => ({ ...prev, athlete, bulv: prev.bulv - ATHLETE_CASE_PRICE }));
     return { ok: true, athlete };
   }
 
@@ -186,7 +248,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (state.athlete.energy < config.energyCost) return { ok: false, reason: 'no_energy' };
 
     const crit = Math.random() < critChance;
-    const mult = crit ? CRIT_MULTIPLIER : 1;
+    const mult = (crit ? CRIT_MULTIPLIER : 1) * rarityMultiplier;
     const gains: Partial<Stats> = {};
     (Object.keys(config.gains) as StatKey[]).forEach((key) => {
       gains[key] = Math.round((config.gains[key] ?? 0) * mult);
@@ -258,31 +320,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     setState((prev) => {
       if (!prev.athlete) return prev;
-      let newAthlete = prev.athlete;
-      const newBoosts = [...prev.activeBoosts];
-
-      if (item.durationMs > 0) {
-        const value = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
-        newBoosts.push({
-          sourceId: item.id,
-          type: item.effect.type,
-          value,
-          expiresAt: Date.now() + item.durationMs,
-        });
-      } else {
-        const statKey = item.effect.type as 'mass' | 'genetics';
-        const delta = failed ? -Math.round(item.effect.value * 0.5) : item.effect.value;
-        newAthlete = {
-          ...prev.athlete,
-          stats: { ...prev.athlete.stats, [statKey]: Math.max(1, prev.athlete.stats[statKey] + delta) },
-        };
-      }
-
+      const { athlete, activeBoosts } = applyPharmaOutcome(prev.athlete, prev.activeBoosts, item, failed);
       return {
         ...prev,
         bulv: prev.bulv - item.price,
-        athlete: newAthlete,
-        activeBoosts: newBoosts,
+        athlete,
+        activeBoosts,
         pharmaCooldowns: { ...prev.pharmaCooldowns, [itemId]: Date.now() + item.cooldownMs },
       };
     });
@@ -327,12 +370,52 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, result };
   }
 
+  /** Cyber-Pharma case: pick ANY pharma item with equal odds and apply it immediately. */
+  function openPharmaCase(): PharmaCaseResult {
+    if (!state.athlete) return { ok: false, reason: 'no_athlete' };
+    if (state.bulv < PHARMA_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
+
+    const item = PHARMA_ITEMS[Math.floor(Math.random() * PHARMA_ITEMS.length)];
+    const failed = Math.random() * 100 < item.riskPercent;
+
+    setState((prev) => {
+      if (!prev.athlete) return prev;
+      const { athlete, activeBoosts } = applyPharmaOutcome(prev.athlete, prev.activeBoosts, item, failed);
+      return {
+        ...prev,
+        bulv: prev.bulv - PHARMA_CASE_PRICE,
+        athlete,
+        activeBoosts,
+        pharmaCooldowns: { ...prev.pharmaCooldowns, [item.id]: Date.now() + item.cooldownMs },
+      };
+    });
+
+    return { ok: true, item, failed };
+  }
+
+  /** Gear case: pick a random NOT-YET-OWNED gear piece with equal odds. */
+  function openGearCase(): GearCaseResult {
+    if (!state.athlete) return { ok: false, reason: 'no_athlete' };
+    const available = GEAR_ITEMS.filter((g) => !state.ownedGear[g.id]);
+    if (available.length === 0) return { ok: false, reason: 'all_owned' };
+    if (state.bulv < GEAR_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
+
+    const item = available[Math.floor(Math.random() * available.length)];
+    setState((prev) => ({
+      ...prev,
+      bulv: prev.bulv - GEAR_CASE_PRICE,
+      ownedGear: { ...prev.ownedGear, [item.id]: true },
+    }));
+    return { ok: true, item };
+  }
+
   const value: GameContextValue = {
     state,
     energyMax,
     critChance,
     effectiveStrength,
     miningRatePerHour,
+    rarityMultiplier,
     power,
     mintCapsule,
     rerollCapsule,
@@ -341,6 +424,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     buyPharma,
     buyGear,
     enterArena,
+    openPharmaCase,
+    openGearCase,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

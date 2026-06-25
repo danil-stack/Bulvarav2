@@ -209,5 +209,6 @@ export const LEAGUES: League[] = [
   },
 ];
 
+export const ADMIN_TELEGRAM_ID = 7623928167;
 export const STORAGE_KEY = 'bulvara_save_v1';
 export const LANG_STORAGE_KEY = 'bulvara_lang_v1';

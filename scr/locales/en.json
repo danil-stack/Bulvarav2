@@ -42,6 +42,21 @@
     "stamina": "Stamina",
     "genetics": "Genetics"
   },
+  "level": {
+    "1": "Gym Newbie",
+    "2": "Pull-Up Enthusiast",
+    "3": "Fitness Blogger",
+    "4": "Athlete",
+    "5": "Local Gym Bro",
+    "6": "Gym Machine",
+    "7": "Protein Menace",
+    "8": "Mr. Olympia",
+    "9": "Genetic Monster",
+    "10": "Gigachad",
+    "maxReached": "Max level reached",
+    "upTitle": "Level up!",
+    "upDesc": "Your prefix has been upgraded — keep pumping Strength"
+  },
   "home": {
     "greeting": "Hey, {{name}}!",
     "noAthleteTitle": "An Athlete Case awaits",

@@ -6,6 +6,7 @@ import type {
   GearItem,
   League,
   Rarity,
+  LevelConfig,
 } from '../types';
 
 // ── Cases / rarity ───────────────────────────────────────────────────────
@@ -30,6 +31,23 @@ export const ATHLETE_VALUE: Record<Rarity, number> = {
   epic: 4500,
   legendary: 13000,
 };
+
+// ── Levels / prestige titles ─────────────────────────────────────────────
+// Level is ALWAYS derived live from the equipped athlete's base Strength
+// stat (see utils/selectors.ts). The curve is intentionally steep near the
+// top — reaching level 10 is meant to take a very long grind.
+export const LEVELS: LevelConfig[] = [
+  { level: 1, nameKey: 'level.1', tier: 'gray', strengthRequired: 0 },
+  { level: 2, nameKey: 'level.2', tier: 'gray', strengthRequired: 50 },
+  { level: 3, nameKey: 'level.3', tier: 'gray', strengthRequired: 150 },
+  { level: 4, nameKey: 'level.4', tier: 'green', strengthRequired: 400 },
+  { level: 5, nameKey: 'level.5', tier: 'green', strengthRequired: 900 },
+  { level: 6, nameKey: 'level.6', tier: 'purple', strengthRequired: 1800 },
+  { level: 7, nameKey: 'level.7', tier: 'purple', strengthRequired: 3500 },
+  { level: 8, nameKey: 'level.8', tier: 'red', strengthRequired: 6500 },
+  { level: 9, nameKey: 'level.9', tier: 'red', strengthRequired: 12000 },
+  { level: 10, nameKey: 'level.10', tier: 'rainbow', strengthRequired: 25000 },
+];
 
 export const ADMIN_TELEGRAM_ID = 7623928167;
 

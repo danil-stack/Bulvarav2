@@ -54,42 +54,25 @@
     "quickTrain": "Go train",
     "athletePower": "Power",
     "activeBoosts": "Active boosts",
-    "noBoosts": "No active boosts — check Cyber-Pharma"
-  },
-  "incubator": {
-    "title": "Incubator",
-    "subtitle": "A case contains a random athlete. Rarity sets your training/mining multiplier.",
-    "capsule": "Athlete Case",
-    "open": "Open case",
-    "opening": "Splicing DNA...",
-    "resultTitle": "Athlete created!",
-    "resultCongrats": "Meet your new fighter",
-    "continue": "To Home",
-    "rerollTitle": "New Case",
-    "rerollDesc": "Splice your current athlete and get a new random fighter.",
-    "rerollButton": "Open for {{cost}} BULV",
-    "rerollConfirmTitle": "Reroll for real?",
-    "rerollConfirmDesc": "Your current athlete will be destroyed and stats reset. This can't be undone.",
-    "rerollConfirmButton": "Yes, splice it",
-    "alreadyHave": "Athlete already created"
+    "noBoosts": "No active boosts — check your inventory or Cyber-Pharma"
   },
   "cases": {
     "title": "Cases",
-    "subtitle": "Open cases with $BULV to get athletes, pharma boosts and gear.",
+    "subtitle": "Open cases with $BULV — everything you get goes straight to your inventory.",
     "tabAthlete": "Athlete",
     "tabPharma": "Pharma",
     "tabGear": "Gear",
     "openFree": "Open for free",
     "open": "Open case",
     "rarityNote": "Rarity gives a training & mining multiplier",
-    "rerollWarning": "Opening a new case will replace your current athlete and reset its stats",
+    "benchInfo": "If you already have an athlete, the new one goes to your inventory — equip it yourself",
+    "benchedNote": "Athlete sent to inventory — you already have one active",
     "needAthlete": "Open the athlete case first",
-    "allOwned": "You already own all gear — no need for this case",
     "equalOdds": "Any of {{count}} items with equal odds",
-    "gearProgress": "Gear collected: {{owned}}/{{total}}",
     "athleteResultTitle": "Athlete created!",
     "pharmaResultTitle": "Case drop",
-    "gearResultTitle": "Case drop"
+    "gearResultTitle": "Case drop",
+    "addedToInventory": "Added to inventory"
   },
   "training": {
     "title": "Training Camp",
@@ -131,7 +114,7 @@
   },
   "pharma": {
     "title": "Cyber-Pharma",
-    "subtitle": "Powerful boosts with high risk. Use with caution.",
+    "subtitle": "Powerful boosts with high risk. Buying puts the item in your inventory — use it whenever you're ready.",
     "risk": "Side-effect risk",
     "duration": "Duration",
     "instant": "Instant",
@@ -158,7 +141,8 @@
   },
   "gear": {
     "title": "Gear",
-    "subtitle": "Permanent passive bonuses. Buy once — works forever.",
+    "subtitle": "Permanent passive bonuses. Buying puts it in your inventory — equip it to turn the bonus on.",
+    "equippedBadge": "Equipped",
     "shaker": {
       "name": "Crypto-Shaker",
       "desc": "+5% BULV mining rate forever."
@@ -179,7 +163,10 @@
   "shop": {
     "title": "Shop",
     "tabPharma": "Cyber-Pharma",
-    "tabGear": "Gear"
+    "tabGear": "Gear",
+    "addedToInventory": "{{name}} added to inventory",
+    "pharmaNote": "All purchased pharma goes to your inventory — use it from there",
+    "gearNote": "All purchased gear goes to your inventory — equip it from there"
   },
   "arena": {
     "title": "Arena",
@@ -216,6 +203,27 @@
     "withdrawDisabled": "Withdrawals opening soon",
     "notConnected": "Wallet not connected. Connect it to take part in the future $BULV airdrop."
   },
+  "inventory": {
+    "title": "Inventory",
+    "subtitle": "Everything dropped from cases or bought in the shop. Equip it or sell for 50% of its value.",
+    "empty": "Nothing here yet — open a case or check the shop",
+    "sectionActive": "Active athlete",
+    "activeLabel": "Currently fighting",
+    "sectionAthletes": "Benched athletes",
+    "sectionGear": "Gear",
+    "sectionPharma": "Cyber-Pharma",
+    "equip": "Equip",
+    "apply": "Apply",
+    "sell": "Sell",
+    "duplicateNote": "Already equipped — this is a duplicate",
+    "onCooldown": "This item is currently on cooldown",
+    "equippedAthlete": "Athlete equipped",
+    "equippedGear": "{{name}} equipped",
+    "sold": "Sold for {{amount}} BULV",
+    "sellConfirmTitle": "Sell this item?",
+    "sellConfirmDesc": "{{item}} will be sold for {{amount}} BULV (50% of its value). This can't be undone.",
+    "wasReplaced": "Your previous athlete was automatically benched in the inventory"
+  },
   "admin": {
     "title": "Admin Panel",
     "subtitle": "Owner-only access",
@@ -232,7 +240,7 @@
     "dangerZone": "Danger zone",
     "resetSave": "Reset save",
     "resetConfirmTitle": "Really reset everything?",
-    "resetConfirmDesc": "Progress, athlete, balance and gear will be wiped permanently."
+    "resetConfirmDesc": "Progress, athlete, balance, inventory and gear will be wiped permanently."
   },
   "toast": {
     "statGain": "+{{value}} {{stat}}",

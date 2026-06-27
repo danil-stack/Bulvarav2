@@ -12,7 +12,7 @@ export interface RarityConfig {
 }
 
 export interface Stats {
-  strength: number; // tournament reward power
+  strength: number; // tournament reward power + drives the level/prefix system
   mass: number; // passive mining rate
   stamina: number; // max energy pool
   genetics: number; // crit / luck chance during training
@@ -23,7 +23,7 @@ export type StatKey = keyof Stats;
 export interface Athlete {
   id: string;
   rarity: Rarity;
-  level: number;
+  level: number; // legacy field, kept for save-shape compatibility — not the source of truth anymore
   xp: number;
   stats: Stats;
   energy: number; // current energy (capped at stats.stamina)
@@ -38,6 +38,19 @@ export interface MuscleGroupConfig {
   icon: string;
   energyCost: number;
   gains: Partial<Stats>;
+}
+
+// ── Level / prestige titles ──────────────────────────────────────────────
+// The active athlete's level is ALWAYS derived from its current base
+// Strength stat (see utils/selectors.ts::getLevelForStrength) — there is no
+// separate stored counter, so it can never desync from the real progress.
+export type LevelTier = 'gray' | 'green' | 'purple' | 'red' | 'rainbow';
+
+export interface LevelConfig {
+  level: number;
+  nameKey: string;
+  tier: LevelTier;
+  strengthRequired: number; // cumulative base Strength needed to reach this level
 }
 
 export type NutritionEffectType = 'energy' | 'miningBoost';

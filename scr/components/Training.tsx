@@ -5,9 +5,11 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useFloatingText } from '../hooks/useFloatingText';
 import FloatingTextLayer from './FloatingTextLayer';
 import Nutrition from './Nutrition';
+import Modal from './Modal';
 import { MUSCLE_GROUPS } from '../utils/constants';
 import { STAT_META } from './StatBar';
-import type { MuscleGroup, StatKey } from '../types';
+import { LEVEL_TIER_CLASS, LEVEL_TIER_BORDER } from '../utils/levelStyle';
+import type { MuscleGroup, StatKey, LevelConfig } from '../types';
 
 const STAT_COLOR_HEX: Record<StatKey, string> = {
   strength: '#FF5252',
@@ -23,6 +25,7 @@ export default function Training() {
   const [tab, setTab] = useState<'camp' | 'nutrition'>('camp');
   const containerRef = useRef<HTMLDivElement>(null);
   const { items, push } = useFloatingText();
+  const [levelUp, setLevelUp] = useState<LevelConfig | null>(null);
 
   function handleTap(group: MuscleGroup, e: MouseEvent<HTMLButtonElement>) {
     const result = trainMuscle(group);
@@ -51,6 +54,13 @@ export default function Training() {
     }
     if (result.bulvBonus) {
       push(`+${result.bulvBonus} BULV`, '#36C5F0', x, y - 28);
+    }
+
+    if (result.leveledUp && result.newLevelConfig) {
+      window.setTimeout(() => {
+        hapticNotify('success');
+        setLevelUp(result.newLevelConfig!);
+      }, 250);
     }
   }
 
@@ -121,6 +131,31 @@ export default function Training() {
       ) : (
         <Nutrition />
       )}
+
+      {/* ── Level-up celebration ─────────────────────────────────────── */}
+      <Modal open={!!levelUp} onClose={() => setLevelUp(null)}>
+        {levelUp && (
+          <div className="text-center">
+            <p className="text-4xl">🎉</p>
+            <p className="mt-2 text-xs text-white/50">{t('level.upTitle')}</p>
+            <div className={`mx-auto mt-3 inline-flex items-center gap-2 rounded-2xl border px-4 py-2 ${LEVEL_TIER_BORDER[levelUp.tier]}`}>
+              <span className="rounded-full bg-black/30 px-2 py-0.5 font-mono text-[10px] font-bold text-white/70">
+                LV {levelUp.level}
+              </span>
+              <span className={`font-display text-lg font-bold ${LEVEL_TIER_CLASS[levelUp.tier]}`}>
+                {t(levelUp.nameKey)}
+              </span>
+            </div>
+            <p className="mt-3 text-xs text-white/40">{t('level.upDesc')}</p>
+            <button
+              onClick={() => setLevelUp(null)}
+              className="mt-5 w-full rounded-2xl bg-bulv py-3 text-center font-display text-sm text-void active:scale-95"
+            >
+              {t('common.close')}
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

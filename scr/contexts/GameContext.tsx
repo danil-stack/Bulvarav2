@@ -11,6 +11,7 @@ import type {
   PharmaItem,
   GearItem,
   InventoryItem,
+  LevelConfig,
 } from '../types';
 import {
   MUSCLE_GROUPS,
@@ -36,6 +37,9 @@ import {
   getMiningRatePerHour,
   getRarityMultiplier,
   getPower,
+  getLevelInfo,
+  getLevelForStrength,
+  type LevelInfo,
 } from '../utils/selectors';
 import { randomInRange } from '../utils/format';
 
@@ -125,6 +129,8 @@ export interface TrainResult {
   crit?: boolean;
   gains?: Partial<Stats>;
   bulvBonus?: number;
+  leveledUp?: boolean;
+  newLevelConfig?: LevelConfig;
 }
 
 export interface NutritionResult {
@@ -188,6 +194,7 @@ interface GameContextValue {
   miningRatePerHour: number;
   rarityMultiplier: number;
   power: number;
+  levelInfo: LevelInfo;
   openAthleteCase: () => OpenAthleteCaseResult;
   trainMuscle: (group: MuscleGroup) => TrainResult;
   consumeNutrition: (itemId: string) => NutritionResult;
@@ -261,6 +268,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const miningRatePerHour = useMemo(() => getMiningRatePerHour(state), [state]);
   const rarityMultiplier = useMemo(() => getRarityMultiplier(state), [state]);
   const power = useMemo(() => getPower(state), [state]);
+  const levelInfo = useMemo(() => getLevelInfo(state), [state]);
 
   /** The single entry point for the Athlete Case. First one ever is free. */
   function openAthleteCase(): OpenAthleteCaseResult {
@@ -306,6 +314,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const bulvBonus = crit ? 5 : 0;
     const prevEnergy = state.athlete.energy;
 
+    // Level is purely a function of base Strength — compare before/after
+    // this tap's gains to detect a prestige-title unlock.
+    const prevLevel = getLevelForStrength(state.athlete.stats.strength).level;
+    const newLevelConfig = getLevelForStrength(newStats.strength);
+    const leveledUp = newLevelConfig.level > prevLevel;
+
     setState((prev) => {
       if (!prev.athlete) return prev;
       const newEnergyMax = getEnergyMax({ ...prev, athlete: { ...prev.athlete, stats: newStats } });
@@ -319,7 +333,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         },
       };
     });
-    return { ok: true, crit, gains, bulvBonus };
+    return { ok: true, crit, gains, bulvBonus, leveledUp, newLevelConfig: leveledUp ? newLevelConfig : undefined };
   }
 
   function consumeNutrition(itemId: string): NutritionResult {
@@ -575,6 +589,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     miningRatePerHour,
     rarityMultiplier,
     power,
+    levelInfo,
     openAthleteCase,
     trainMuscle,
     consumeNutrition,

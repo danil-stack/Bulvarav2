@@ -12,7 +12,7 @@ export interface RarityConfig {
 }
 
 export interface Stats {
-  strength: number; // tournament reward power
+  strength: number; // tournament reward power + drives the level/prefix system
   mass: number; // passive mining rate
   stamina: number; // max energy pool
   genetics: number; // crit / luck chance during training
@@ -23,7 +23,7 @@ export type StatKey = keyof Stats;
 export interface Athlete {
   id: string;
   rarity: Rarity;
-  level: number;
+  level: number; // legacy field, kept for save-shape compatibility — not the source of truth anymore
   xp: number;
   stats: Stats;
   energy: number; // current energy (capped at stats.stamina)
@@ -38,6 +38,19 @@ export interface MuscleGroupConfig {
   icon: string;
   energyCost: number;
   gains: Partial<Stats>;
+}
+
+// ── Level / prestige titles ──────────────────────────────────────────────
+// The active athlete's level is ALWAYS derived from its current base
+// Strength stat (see utils/selectors.ts::getLevelForStrength) — there is no
+// separate stored counter, so it can never desync from the real progress.
+export type LevelTier = 'gray' | 'green' | 'purple' | 'red' | 'rainbow';
+
+export interface LevelConfig {
+  level: number;
+  nameKey: string;
+  tier: LevelTier;
+  strengthRequired: number; // cumulative base Strength needed to reach this level
 }
 
 export type NutritionEffectType = 'energy' | 'miningBoost';
@@ -112,17 +125,32 @@ export interface ArenaResult {
   timestamp: number;
 }
 
+// ── Inventory ────────────────────────────────────────────────────────────
+// Everything bought in shops or dropped from cases lands here first. The
+// player explicitly equips/uses or sells each item — nothing auto-applies.
+export type InventoryItemKind = 'athlete' | 'gear' | 'pharma';
+
+export interface InventoryItem {
+  id: string; // unique instance id (not the same as the gear/pharma catalog id)
+  kind: InventoryItemKind;
+  refId: string; // gear/pharma catalog id; for athletes, the rolled rarity
+  athlete?: Athlete; // present only when kind === 'athlete'
+  acquiredAt: number;
+}
+
 export interface GameState {
-  athlete: Athlete | null;
+  athlete: Athlete | null; // the currently EQUIPPED/active athlete only
   bulv: number;
   totalMined: number;
   lastTick: number; // ms timestamp of last processed tick (for offline calc)
-  ownedGear: Record<string, boolean>;
-  pharmaCooldowns: Record<string, number>; // itemId -> ready-again timestamp
+  ownedGear: Record<string, boolean>; // currently EQUIPPED gear (drives passive bonuses)
+  pharmaCooldowns: Record<string, number>; // itemId -> ready-again timestamp (gates USE, not purchase)
   nutritionCooldowns: Record<string, number>;
   arenaCooldowns: Record<string, number>; // leagueId -> ready-again timestamp
   activeBoosts: ActiveBoost[];
   arenaHistory: ArenaResult[];
+  inventory: InventoryItem[];
+  hasUsedFreeCase: boolean; // the very first Athlete Case is free, once ever
 }
 
 export type Lang = 'ru' | 'en';

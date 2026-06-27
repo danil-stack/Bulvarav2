@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGame } from '../contexts/GameContext';
 import { useTelegram } from '../hooks/useTelegram';
@@ -18,18 +17,19 @@ import {
 } from '../utils/constants';
 import { formatBulv } from '../utils/format';
 
-interface IncubatorProps {
-  onBack: () => void;
-}
-
 type CaseTab = 'athlete' | 'pharma' | 'gear';
 
 const PHARMA_REEL_COLOR = '#C26BFF';
 const GEAR_REEL_COLOR = '#7CFF5C';
 
-export default function Incubator({ onBack }: IncubatorProps) {
+interface AthleteReveal {
+  athlete: Athlete;
+  becameActive: boolean;
+}
+
+export default function Incubator() {
   const { t } = useLanguage();
-  const { state, mintCapsule, rerollCapsule, openPharmaCase, openGearCase } = useGame();
+  const { state, openAthleteCase, openPharmaCase, openGearCase } = useGame();
   const { haptic, hapticNotify } = useTelegram();
 
   const [tab, setTab] = useState<CaseTab>('athlete');
@@ -38,14 +38,14 @@ export default function Incubator({ onBack }: IncubatorProps) {
   // Athlete case
   const [athleteTrigger, setAthleteTrigger] = useState(0);
   const [athleteReelResult, setAthleteReelResult] = useState<ReelItem | null>(null);
-  const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
-  const [revealedAthlete, setRevealedAthlete] = useState<Athlete | null>(null);
+  const [pendingAthlete, setPendingAthlete] = useState<AthleteReveal | null>(null);
+  const [revealedAthlete, setRevealedAthlete] = useState<AthleteReveal | null>(null);
 
   // Pharma case
   const [pharmaTrigger, setPharmaTrigger] = useState(0);
   const [pharmaReelResult, setPharmaReelResult] = useState<ReelItem | null>(null);
-  const [pendingPharma, setPendingPharma] = useState<{ item: PharmaItem; failed: boolean } | null>(null);
-  const [revealedPharma, setRevealedPharma] = useState<{ item: PharmaItem; failed: boolean } | null>(null);
+  const [pendingPharma, setPendingPharma] = useState<PharmaItem | null>(null);
+  const [revealedPharma, setRevealedPharma] = useState<PharmaItem | null>(null);
 
   // Gear case
   const [gearTrigger, setGearTrigger] = useState(0);
@@ -66,28 +66,15 @@ export default function Incubator({ onBack }: IncubatorProps) {
     [t]
   );
 
-  const allGearOwned = GEAR_ITEMS.every((g) => state.ownedGear[g.id]);
-
   function handleOpenAthleteCase() {
     if (spinning) return;
-    if (!state.athlete) {
-      const athlete = mintCapsule();
-      if (!athlete) return;
-      const matched = rarityPool.find((r) => r.key === athlete.rarity) ?? rarityPool[0];
-      setPendingAthlete(athlete);
-      setAthleteReelResult(matched);
-      setSpinning(true);
-      setAthleteTrigger((n) => n + 1);
-      haptic('light');
-      return;
-    }
-    const result = rerollCapsule();
+    const result = openAthleteCase();
     if (!result.ok || !result.athlete) {
       hapticNotify('error');
       return;
     }
     const matched = rarityPool.find((r) => r.key === result.athlete!.rarity) ?? rarityPool[0];
-    setPendingAthlete(result.athlete);
+    setPendingAthlete({ athlete: result.athlete, becameActive: !!result.becameActive });
     setAthleteReelResult(matched);
     setSpinning(true);
     setAthleteTrigger((n) => n + 1);
@@ -102,7 +89,7 @@ export default function Incubator({ onBack }: IncubatorProps) {
       return;
     }
     const matched = pharmaPool.find((p) => p.key === result.item!.id) ?? pharmaPool[0];
-    setPendingPharma({ item: result.item, failed: !!result.failed });
+    setPendingPharma(result.item);
     setPharmaReelResult(matched);
     setSpinning(true);
     setPharmaTrigger((n) => n + 1);
@@ -124,17 +111,13 @@ export default function Incubator({ onBack }: IncubatorProps) {
     haptic('light');
   }
 
-  const athleteIsFree = !state.athlete;
-  const athleteDisabled = spinning || (!athleteIsFree && state.bulv < ATHLETE_CASE_PRICE);
+  const isFree = !state.hasUsedFreeCase;
+  const athleteDisabled = spinning || (!isFree && state.bulv < ATHLETE_CASE_PRICE);
   const pharmaDisabled = spinning || !state.athlete || state.bulv < PHARMA_CASE_PRICE;
-  const gearDisabled = spinning || !state.athlete || allGearOwned || state.bulv < GEAR_CASE_PRICE;
+  const gearDisabled = spinning || !state.athlete || state.bulv < GEAR_CASE_PRICE;
 
   return (
     <div className="mx-auto max-w-md px-4 pb-28 pt-4">
-      <button onClick={onBack} className="mb-4 flex items-center gap-1.5 text-sm text-white/60 active:scale-95">
-        <ArrowLeft size={16} /> {t('common.close')}
-      </button>
-
       <h1 className="font-display text-xl text-white">{t('cases.title')}</h1>
       <p className="mt-1 text-sm text-white/50">{t('cases.subtitle')}</p>
 
@@ -147,7 +130,8 @@ export default function Incubator({ onBack }: IncubatorProps) {
               tab === id ? 'bg-bulv text-void shadow-neon-bulv' : 'text-white/45'
             }`}
           >
-            {id === 'athlete' ? '🧬' : id === 'pharma' ? '🧪' : '📦'} {t(`cases.tab${id === 'athlete' ? 'Athlete' : id === 'pharma' ? 'Pharma' : 'Gear'}`)}
+            {id === 'athlete' ? '🧬' : id === 'pharma' ? '🧪' : '📦'}{' '}
+            {t(`cases.tab${id === 'athlete' ? 'Athlete' : id === 'pharma' ? 'Pharma' : 'Gear'}`)}
           </button>
         ))}
       </div>
@@ -155,12 +139,17 @@ export default function Incubator({ onBack }: IncubatorProps) {
       {/* ── Athlete case ──────────────────────────────────────────────── */}
       {tab === 'athlete' && (
         <div className="mt-5">
-          <CaseReel pool={rarityPool} result={athleteReelResult} trigger={athleteTrigger} onSettled={() => {
-            setSpinning(false);
-            setRevealedAthlete(pendingAthlete);
-            setPendingAthlete(null);
-            hapticNotify('success');
-          }} />
+          <CaseReel
+            pool={rarityPool}
+            result={athleteReelResult}
+            trigger={athleteTrigger}
+            onSettled={() => {
+              setSpinning(false);
+              setRevealedAthlete(pendingAthlete);
+              setPendingAthlete(null);
+              hapticNotify('success');
+            }}
+          />
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             {RARITIES.map((r) => (
@@ -179,17 +168,15 @@ export default function Incubator({ onBack }: IncubatorProps) {
             ))}
           </div>
           <p className="mt-2 text-center text-[11px] text-white/35">{t('cases.rarityNote')}</p>
+          {state.athlete && <p className="mt-1 text-center text-[11px] text-white/35">{t('cases.benchInfo')}</p>}
 
           <button
             onClick={handleOpenAthleteCase}
             disabled={athleteDisabled}
             className="mt-4 w-full rounded-2xl bg-bulv py-3.5 text-center font-display text-sm text-void shadow-neon-bulv active:scale-95 disabled:opacity-40"
           >
-            {athleteIsFree ? t('cases.openFree') : `${t('cases.open')} · ${formatBulv(ATHLETE_CASE_PRICE)} 💎`}
+            {isFree ? t('cases.openFree') : `${t('cases.open')} · ${formatBulv(ATHLETE_CASE_PRICE)} 💎`}
           </button>
-          {state.athlete && (
-            <p className="mt-2 text-center text-[11px] text-white/35">{t('cases.rerollWarning')}</p>
-          )}
         </div>
       )}
 
@@ -202,12 +189,17 @@ export default function Incubator({ onBack }: IncubatorProps) {
             </p>
           ) : (
             <>
-              <CaseReel pool={pharmaPool} result={pharmaReelResult} trigger={pharmaTrigger} onSettled={() => {
-                setSpinning(false);
-                setRevealedPharma(pendingPharma);
-                setPendingPharma(null);
-                hapticNotify(pendingPharma?.failed ? 'error' : 'success');
-              }} />
+              <CaseReel
+                pool={pharmaPool}
+                result={pharmaReelResult}
+                trigger={pharmaTrigger}
+                onSettled={() => {
+                  setSpinning(false);
+                  setRevealedPharma(pendingPharma);
+                  setPendingPharma(null);
+                  hapticNotify('success');
+                }}
+              />
               <p className="mt-3 text-center text-[11px] text-white/35">
                 {t('cases.equalOdds', { count: PHARMA_ITEMS.length })}
               </p>
@@ -230,24 +222,20 @@ export default function Incubator({ onBack }: IncubatorProps) {
             <p className="rounded-2xl border border-surface-line bg-surface p-4 text-center text-sm text-white/45">
               {t('cases.needAthlete')}
             </p>
-          ) : allGearOwned ? (
-            <p className="rounded-2xl border border-mass/30 bg-mass/10 p-4 text-center text-sm text-mass">
-              {t('cases.allOwned')}
-            </p>
           ) : (
             <>
-              <CaseReel pool={gearPool} result={gearReelResult} trigger={gearTrigger} onSettled={() => {
-                setSpinning(false);
-                setRevealedGear(pendingGear);
-                setPendingGear(null);
-                hapticNotify('success');
-              }} />
-              <p className="mt-3 text-center text-[11px] text-white/35">
-                {t('cases.gearProgress', {
-                  owned: GEAR_ITEMS.filter((g) => state.ownedGear[g.id]).length,
-                  total: GEAR_ITEMS.length,
-                })}
-              </p>
+              <CaseReel
+                pool={gearPool}
+                result={gearReelResult}
+                trigger={gearTrigger}
+                onSettled={() => {
+                  setSpinning(false);
+                  setRevealedGear(pendingGear);
+                  setPendingGear(null);
+                  hapticNotify('success');
+                }}
+              />
+              <p className="mt-3 text-center text-[11px] text-white/35">{t('cases.equalOdds', { count: GEAR_ITEMS.length })}</p>
               <button
                 onClick={handleOpenGearCase}
                 disabled={gearDisabled}
@@ -261,7 +249,7 @@ export default function Incubator({ onBack }: IncubatorProps) {
       )}
 
       {/* ── Reveal modals ─────────────────────────────────────────────── */}
-      <Modal open={!!revealedAthlete} dismissible={false}>
+      <Modal open={!!revealedAthlete} onClose={() => setRevealedAthlete(null)}>
         {revealedAthlete && (
           <div className="text-center">
             <p className="font-display text-lg text-white">{t('cases.athleteResultTitle')}</p>
@@ -269,22 +257,22 @@ export default function Incubator({ onBack }: IncubatorProps) {
               🏆
             </div>
             <div className="mt-3 flex justify-center">
-              <RarityBadge rarity={revealedAthlete.rarity} size="lg" />
+              <RarityBadge rarity={revealedAthlete.athlete.rarity} size="lg" />
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-              <StatBar stat="strength" value={revealedAthlete.stats.strength} />
-              <StatBar stat="mass" value={revealedAthlete.stats.mass} />
-              <StatBar stat="stamina" value={revealedAthlete.stats.stamina} />
-              <StatBar stat="genetics" value={revealedAthlete.stats.genetics} />
+              <StatBar stat="strength" value={revealedAthlete.athlete.stats.strength} />
+              <StatBar stat="mass" value={revealedAthlete.athlete.stats.mass} />
+              <StatBar stat="stamina" value={revealedAthlete.athlete.stats.stamina} />
+              <StatBar stat="genetics" value={revealedAthlete.athlete.stats.genetics} />
             </div>
+            {!revealedAthlete.becameActive && (
+              <p className="mt-4 rounded-xl bg-bulv/10 px-3 py-2 text-xs text-bulv">{t('cases.benchedNote')}</p>
+            )}
             <button
-              onClick={() => {
-                setRevealedAthlete(null);
-                onBack();
-              }}
+              onClick={() => setRevealedAthlete(null)}
               className="mt-6 w-full rounded-2xl bg-bulv py-3 text-center font-display text-sm text-void active:scale-95"
             >
-              {t('incubator.continue')}
+              {t('common.close')}
             </button>
           </div>
         )}
@@ -294,13 +282,11 @@ export default function Incubator({ onBack }: IncubatorProps) {
         {revealedPharma && (
           <div className="text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-raised text-3xl">
-              {revealedPharma.item.icon}
+              {revealedPharma.icon}
             </div>
             <p className="mt-3 text-xs text-white/50">{t('cases.pharmaResultTitle')}</p>
-            <p className="mt-1 font-display text-base text-white">{t(revealedPharma.item.nameKey)}</p>
-            <p className={`mt-3 font-display text-sm ${revealedPharma.failed ? 'text-strength' : 'text-mass'}`}>
-              {revealedPharma.failed ? t('pharma.fail') : t('pharma.success')}
-            </p>
+            <p className="mt-1 font-display text-base text-white">{t(revealedPharma.nameKey)}</p>
+            <p className="mt-3 rounded-xl bg-bulv/10 px-3 py-2 text-xs text-bulv">{t('cases.addedToInventory')}</p>
             <button
               onClick={() => setRevealedPharma(null)}
               className="mt-5 w-full rounded-2xl bg-surface-raised py-2.5 text-sm text-white/80 active:scale-95"
@@ -320,6 +306,7 @@ export default function Incubator({ onBack }: IncubatorProps) {
             <p className="mt-3 text-xs text-white/50">{t('cases.gearResultTitle')}</p>
             <p className="mt-1 font-display text-base text-white">{t(revealedGear.nameKey)}</p>
             <p className="mt-1 text-xs text-white/45">{t(revealedGear.descKey)}</p>
+            <p className="mt-3 rounded-xl bg-bulv/10 px-3 py-2 text-xs text-bulv">{t('cases.addedToInventory')}</p>
             <button
               onClick={() => setRevealedGear(null)}
               className="mt-5 w-full rounded-2xl bg-surface-raised py-2.5 text-sm text-white/80 active:scale-95"

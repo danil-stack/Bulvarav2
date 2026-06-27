@@ -1,12 +1,14 @@
-import type { GameState } from '../types';
+import type { GameState, LevelConfig } from '../types';
 import {
   GEAR_ITEMS,
   MAX_CRIT_CHANCE,
   GENETICS_TO_CRIT,
   BASE_MINING_RATE_PER_HOUR,
   MASS_MINING_COEFFICIENT,
+  LEVELS,
 } from './constants';
 import { getRarityConfig } from './rarity';
+import { clamp } from './format';
 
 export function getGearBonus(state: GameState, type: 'mining' | 'energyMax' | 'crit' | 'strength'): number {
   return GEAR_ITEMS.filter((g) => state.ownedGear[g.id] && g.effect.type === type).reduce(
@@ -62,4 +64,35 @@ export function getPower(state: GameState): number {
   const s = state.athlete.stats;
   const strength = getEffectiveStrength(state);
   return Math.round(strength * 2 + s.mass * 1 + s.stamina * 0.5 + s.genetics * 0.5);
+}
+
+// ── Level / prestige titles ──────────────────────────────────────────────
+
+/** Pure function: given a raw base-Strength number, find the highest level it qualifies for. */
+export function getLevelForStrength(strength: number): LevelConfig {
+  let current = LEVELS[0];
+  for (const lvl of LEVELS) {
+    if (strength >= lvl.strengthRequired) current = lvl;
+    else break;
+  }
+  return current;
+}
+
+export interface LevelInfo {
+  current: LevelConfig;
+  next: LevelConfig | null;
+  strength: number;
+  /** 0..1 progress towards `next` (1 = max level reached). */
+  progress: number;
+}
+
+export function getLevelInfo(state: GameState): LevelInfo {
+  const strength = state.athlete?.stats.strength ?? 0;
+  const current = getLevelForStrength(strength);
+  const currentIndex = LEVELS.findIndex((l) => l.level === current.level);
+  const next = LEVELS[currentIndex + 1] ?? null;
+  const progress = next
+    ? clamp((strength - current.strengthRequired) / (next.strengthRequired - current.strengthRequired), 0, 1)
+    : 1;
+  return { current, next, strength, progress };
 }

@@ -4,6 +4,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import AthleteCard from './AthleteCard';
 import { formatBulv } from '../utils/format';
 import { PHARMA_ITEMS, NUTRITION_ITEMS } from '../utils/constants';
+import { LEVEL_TIER_CLASS } from '../utils/levelStyle';
 import type { Screen } from '../App';
 
 interface HomeProps {
@@ -20,13 +21,20 @@ function findBoostLabel(sourceId: string): { icon: string; nameKey: string } {
 
 export default function Home({ onNavigate }: HomeProps) {
   const { t, lang } = useLanguage();
-  const { state, energyMax, power, miningRatePerHour } = useGame();
+  const { state, energyMax, power, miningRatePerHour, levelInfo } = useGame();
   const { user } = useTelegram();
   const name = user?.first_name ?? (lang === 'ru' ? 'Чемпион' : 'Champion');
 
   return (
     <div className="mx-auto max-w-md px-4 pb-28 pt-4">
-      <p className="font-display text-lg text-white">{t('home.greeting', { name })}</p>
+      <div className="flex items-center justify-between">
+        <p className="font-display text-lg text-white">{t('home.greeting', { name })}</p>
+        {state.athlete && (
+          <span className={`font-display text-xs font-bold ${LEVEL_TIER_CLASS[levelInfo.current.tier]}`}>
+            LV{levelInfo.current.level} · {t(levelInfo.current.nameKey)}
+          </span>
+        )}
+      </div>
 
       {!state.athlete ? (
         <div className="mt-6 rounded-3xl border border-bulv/30 bg-gradient-to-br from-surface to-surface-raised p-6 text-center shadow-card">

@@ -5,12 +5,13 @@ import type {
   PharmaItem,
   GearItem,
   League,
+  Rarity,
+  LevelConfig,
 } from '../types';
 
 // ── Cases / rarity ───────────────────────────────────────────────────────
 // Weights are literal drop-chance percentages (they sum to exactly 100).
-// `multiplier` now drives BOTH training-tap gains and the passive mining
-// rate — it no longer scales the initial stat roll (that stays flat/fair).
+// `multiplier` drives BOTH training-tap gains and the passive mining rate.
 export const RARITIES: RarityConfig[] = [
   { id: 'common', nameKey: 'rarity.common', weight: 60, multiplier: 1.0, color: '#9CA3AF', icon: '⚪' },
   { id: 'rare', nameKey: 'rarity.rare', weight: 30, multiplier: 1.3, color: '#3ED1FF', icon: '🔵' },
@@ -18,9 +19,37 @@ export const RARITIES: RarityConfig[] = [
   { id: 'legendary', nameKey: 'rarity.legendary', weight: 2, multiplier: 5.0, color: '#FFD23E', icon: '🟡' },
 ];
 
-export const ATHLETE_CASE_PRICE = 5000; // "очень дорогой" reroll cost (first one is free)
+export const ATHLETE_CASE_PRICE = 5000; // every case after the first free one
 export const PHARMA_CASE_PRICE = 400;
 export const GEAR_CASE_PRICE = 1200;
+
+// Reference value per rarity, used to compute the 50% sell-back refund for
+// athletes sitting in the inventory (incl. the currently equipped one).
+export const ATHLETE_VALUE: Record<Rarity, number> = {
+  common: 600,
+  rare: 1800,
+  epic: 4500,
+  legendary: 13000,
+};
+
+// ── Levels / prestige titles ─────────────────────────────────────────────
+// Level is ALWAYS derived live from the equipped athlete's base Strength
+// stat (see utils/selectors.ts). The curve is intentionally steep near the
+// top — reaching level 10 is meant to take a very long grind.
+export const LEVELS: LevelConfig[] = [
+  { level: 1, nameKey: 'level.1', tier: 'gray', strengthRequired: 0 },
+  { level: 2, nameKey: 'level.2', tier: 'gray', strengthRequired: 50 },
+  { level: 3, nameKey: 'level.3', tier: 'gray', strengthRequired: 150 },
+  { level: 4, nameKey: 'level.4', tier: 'green', strengthRequired: 400 },
+  { level: 5, nameKey: 'level.5', tier: 'green', strengthRequired: 900 },
+  { level: 6, nameKey: 'level.6', tier: 'purple', strengthRequired: 1800 },
+  { level: 7, nameKey: 'level.7', tier: 'purple', strengthRequired: 3500 },
+  { level: 8, nameKey: 'level.8', tier: 'red', strengthRequired: 6500 },
+  { level: 9, nameKey: 'level.9', tier: 'red', strengthRequired: 12000 },
+  { level: 10, nameKey: 'level.10', tier: 'rainbow', strengthRequired: 25000 },
+];
+
+export const ADMIN_TELEGRAM_ID = 7623928167;
 
 // ── Training Camp ───────────────────────────────────────────────────────
 export const MUSCLE_GROUPS: MuscleGroupConfig[] = [
@@ -82,6 +111,8 @@ export const NUTRITION_ITEMS: NutritionItem[] = [
 ];
 
 // ── Cyber-Pharma (high-risk boosts) ─────────────────────────────────────
+// Purchase (shop or case) only stocks your inventory — the risk roll
+// happens when you actually USE the item from there.
 export const PHARMA_ITEMS: PharmaItem[] = [
   {
     id: 'titan_serum',
@@ -130,6 +161,7 @@ export const PHARMA_ITEMS: PharmaItem[] = [
 ];
 
 // ── Gear Shop (permanent passive items) ─────────────────────────────────
+// Purchase/case-drop stocks your inventory; equipping sets the bonus live.
 export const GEAR_ITEMS: GearItem[] = [
   {
     id: 'crypto_shaker',
@@ -209,6 +241,5 @@ export const LEAGUES: League[] = [
   },
 ];
 
-export const ADMIN_TELEGRAM_ID = 7623928167;
 export const STORAGE_KEY = 'bulvara_save_v1';
 export const LANG_STORAGE_KEY = 'bulvara_lang_v1';

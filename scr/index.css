@@ -77,6 +77,32 @@ body {
   }
 }
 
+@keyframes rainbow-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.rainbow-text {
+  background: linear-gradient(
+    90deg,
+    #ff5252,
+    #ffc53d,
+    #7cff5c,
+    #3ed1ff,
+    #c26bff,
+    #ff5252
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rainbow-shift 3s linear infinite;
+}
+
 .floating-text {
   position: absolute;
   pointer-events: none;
@@ -94,3 +120,6 @@ body {
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
+/* Место для твоих новых стилей в конце файла: */
+

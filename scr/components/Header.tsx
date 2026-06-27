@@ -1,4 +1,4 @@
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Backpack } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGame } from '../contexts/GameContext';
 import { useTelegram } from '../hooks/useTelegram';
@@ -6,9 +6,10 @@ import { formatBulv } from '../utils/format';
 
 interface HeaderProps {
   onOpenAdmin?: () => void;
+  onOpenInventory?: () => void;
 }
 
-export default function Header({ onOpenAdmin }: HeaderProps) {
+export default function Header({ onOpenAdmin, onOpenInventory }: HeaderProps) {
   const { t, lang, toggleLang } = useLanguage();
   const { state } = useGame();
   const { isAdmin } = useTelegram();
@@ -31,6 +32,15 @@ export default function Header({ onOpenAdmin }: HeaderProps) {
             <span className="text-sm">💎</span>
             <span className="font-mono text-sm font-bold text-bulv">{formatBulv(state.bulv)}</span>
           </div>
+          {onOpenInventory && (
+            <button
+              onClick={onOpenInventory}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-surface-line bg-surface text-white/70 active:scale-95"
+              aria-label="inventory"
+            >
+              <Backpack size={15} />
+            </button>
+          )}
           {isAdmin && onOpenAdmin && (
             <button
               onClick={onOpenAdmin}

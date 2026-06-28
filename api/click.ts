@@ -65,7 +65,7 @@ export default async function handler(req: any, res: any) {
           opened_cases: finalCases,
           updated_at: new Date().toISOString()
         })
-        .eq('Telegram_id', telegramId);
+        .eq('telegram_id', telegramId);
 
       if (error) {
         return res.status(200).json({ success: false, error: error.message });
@@ -87,7 +87,7 @@ export default async function handler(req: any, res: any) {
       const { data: newPlayer, error: insertError } = await supabase
         .from('players')
         .insert([{ 
-          Telegram_id: telegramId, 
+          telegram_id: telegramId, 
           balance: 150, 
           opened_cases: {} 
         }])

@@ -36,10 +36,6 @@ import {
 } from '../utils/selectors';
 import { randomInRange } from '../utils/format';
 
-// Твои прямые доступы к Supabase
-const SUPABASE_URL = "https://donljbywsnzvsaykjnbo.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_ygvu1F18sFSxpyS5hbZWWw_Lqxhzm7k";
-
 const DEFAULT_STATE: GameState = {
   athlete: null,
   bulv: 150,
@@ -187,97 +183,79 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const telegramId = useMemo(() => getTelegramId(), []);
 
-  // ЗАГРУЗКА ИЗ БАЗЫ ДАННЫХ SUPABASE ПРЯМЫМ HTTP ЗАПРОСОМ
+  // 🔒 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ЧЕРЕЗ БЭКЕНД НА VERCEL С ПРОВЕРКОЙ TELEGRAM
   useEffect(() => {
-    async function loadFromSupabase() {
+    async function loadFromBackend() {
+      // @ts-ignore
+      const initData = window.Telegram?.WebApp?.initData || "";
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/players?telegram_id=eq.${telegramId}`, {
-          method: 'GET',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
+        const res = await fetch('/api/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initData, isLoadRequest: true }) // Передаем флаг, что это просто загрузка/регистрация
         });
 
-        const dbData = await res.json();
+        const data = await res.json();
         
-        if (!res.ok || !dbData || (Array.isArray(dbData) && dbData.length === 0)) {
-          // Игрока нет — создаем дефолтную строчку
-          await fetch(`${SUPABASE_URL}/rest/v1/players`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify({ telegram_id: telegramId, balance: 150, opened_cases: {} })
-          });
-          setState({ ...DEFAULT_STATE, lastTick: Date.now() });
-        } else {
-          // Игрок найден
-          const playerData = Array.isArray(dbData) ? dbData[0] : dbData;
-          if (playerData) {
-            let loadedState: GameState = {
-              ...DEFAULT_STATE,
-              bulv: playerData.balance,
-              ...(playerData.opened_cases && typeof playerData.opened_cases === 'object' && !Array.isArray(playerData.opened_cases) ? playerData.opened_cases : {})
-            };
-            
-            const now = Date.now();
-            const elapsed = Math.min(now - (loadedState.lastTick ?? now), MAX_OFFLINE_MS);
-            
-            if (loadedState.athlete && elapsed > 1000) {
-              const rate = getMiningRatePerHour(loadedState);
-              const mined = (rate / 3_600_000) * elapsed;
-              const energyMax = getEnergyMax(loadedState);
-              const regen = (elapsed / ENERGY_REGEN_TICK_MS) * ENERGY_REGEN_PER_TICK;
+        if (res.ok && data.success) {
+          let loadedState: GameState = {
+            ...DEFAULT_STATE,
+            bulv: data.balance,
+            ...(data.opened_cases && typeof data.opened_cases === 'object' ? data.opened_cases : {})
+          };
+          
+          const now = Date.now();
+          const elapsed = Math.min(now - (loadedState.lastTick ?? now), MAX_OFFLINE_MS);
+          
+          if (loadedState.athlete && elapsed > 1000) {
+            const rate = getMiningRatePerHour(loadedState);
+            const mined = (rate / 3_600_000) * elapsed;
+            const energyMax = getEnergyMax(loadedState);
+            const regen = (elapsed / ENERGY_REGEN_TICK_MS) * ENERGY_REGEN_PER_TICK;
 
-              loadedState.bulv += mined;
-              loadedState.totalMined += mined;
-              loadedState.athlete = {
-                ...loadedState.athlete,
-                energy: Math.min(energyMax, loadedState.athlete.energy + regen),
-              };
-            }
-            
-            loadedState.activeBoosts = (loadedState.activeBoosts || []).filter((b) => b.expiresAt > now);
-            loadedState.lastTick = now;
-            setState(loadedState);
+            loadedState.bulv += mined;
+            loadedState.totalMined += mined;
+            loadedState.athlete = {
+              ...loadedState.athlete,
+              energy: Math.min(energyMax, loadedState.athlete.energy + regen),
+            };
           }
+          
+          loadedState.activeBoosts = (loadedState.activeBoosts || []).filter((b) => b.expiresAt > now);
+          loadedState.lastTick = now;
+          setState(loadedState);
+        } else {
+          console.error("Ошибка проверки бэкенда:", data.error);
         }
       } catch (e) {
-        console.error("Ошибка загрузки данных из Supabase:", e);
+        console.error("Ошибка сети с бэкендом Vercel:", e);
       } finally {
         setIsLoading(false);
       }
     }
-    loadFromSupabase();
+    loadFromBackend();
   }, [telegramId]);
 
-  // АВТОСОХРАНЕНИЕ В БАЗУ ДАННЫХ ПРИ ИЗМЕНЕНИИ СОСТОЯНИЯ
+  // 🔒 АВТОСОХРАНЕНИЕ ДАННЫХ ТЕПЕРЬ СТУЧИТСЯ НА НАШ БЭКЕНД VERCEL
   useEffect(() => {
     if (isLoading) return;
     const timeout = setTimeout(async () => {
+      // @ts-ignore
+      const initData = window.Telegram?.WebApp?.initData || "";
       try {
         const { bulv, ...metaState } = state;
-        await fetch(`${SUPABASE_URL}/rest/v1/players`, {
+        await fetch('/api/click', {
           method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates' // Перезапись существующего ID
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            telegram_id: telegramId,
+            initData,
+            isSaveRequest: true, // Флаг для бэкенда, что мы сохраняем стейт
             balance: Math.round(state.bulv),
-            opened_cases: metaState,
-            updated_at: new Date().toISOString()
+            opened_cases: metaState
           })
         });
       } catch (e) {
-        console.error("Ошибка сохранения в Supabase:", e);
+        console.error("Ошибка отправки сохранения на бэкенд:", e);
       }
     }, 800);
     return () => clearTimeout(timeout);
@@ -583,7 +561,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, athlete: createAthlete(rarity) }));
   }
 
-  // АДМИН-ПАНЕЛЬ
   function adminMaxStats() {
     setState((prev) => {
       if (!prev.athlete) return prev;

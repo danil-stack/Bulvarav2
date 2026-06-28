@@ -76,7 +76,7 @@ export default async function handler(req: any, res: any) {
     let { data: player, error: selectError } = await supabase
       .from('players')
       .select('balance, opened_cases')
-      .eq('Telegram_id', telegramId)
+      .eq('telegram_id', telegramId)
       .maybeSingle();
 
     if (selectError) {

@@ -183,7 +183,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const telegramId = useMemo(() => getTelegramId(), []);
 
-  // 🔒 1. ИСПРАВЛЕННАЯ НАДЕЖНАЯ ЗАГРУЗКА ДАННЫХ
+  // 🔒 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ЧЕРЕЗ БЭКЕНД
   useEffect(() => {
     async function loadFromBackend() {
       // @ts-ignore
@@ -192,7 +192,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const res = await fetch('/api/click', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData })
+          body: JSON.stringify({ 
+            initData, 
+            telegramId: telegramId // Передаем ID в чистом виде напрямую
+          })
         });
 
         const data = await res.json();
@@ -206,7 +209,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             bulv: data.balance !== undefined ? Number(data.balance) : DEFAULT_STATE.bulv,
           };
           
-          // Защита старых игроков: если баланс загрузился, а атлета в базе не было, создаем базового
+          // Защита старых игроков: если баланс есть, а атлета в jsonb не было, выдаем базового
           if (!loadedState.athlete && loadedState.bulv > 150) {
             loadedState.athlete = {
               id: "restored_" + Date.now(),
@@ -249,7 +252,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     loadFromBackend();
   }, [telegramId]);
 
-  // 🔒 2. ИСПРАВЛЕННОЕ АВТОСОХРАНЕНИЕ ПО СТАБИЛЬНОМУ ТАЙМЕРУ (РАЗ В 5 СЕКУНД)
+  // 🔒 АВТОСОХРАНЕНИЕ ВСЕГО ИГРОВОГО СТЕТА НА БЭКЕНД
   useEffect(() => {
     if (isLoading) return;
 
@@ -258,7 +261,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const initData = window.Telegram?.WebApp?.initData || "";
       
       setState((currentSnap) => {
-        // Извлекаем баланс отдельно, остальной стейт пойдет чистым JSON-объектом
         const { bulv, ...metaState } = currentSnap;
         
         fetch('/api/click', {
@@ -266,6 +268,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             initData,
+            telegramId: telegramId, // Передаем ID в чистом виде напрямую
             isSaveRequest: true,
             balance: Math.round(currentSnap.bulv),
             opened_cases: metaState

@@ -29,54 +29,76 @@ export default async function handler(req: any, res: any) {
   const botToken = process.env.BOT_TOKEN!;
 
   if (!verifyTelegramData(initData, botToken)) {
-    return res.status(401).json({ error: 'Попытка взлома! Подпись Telegram не совпадает.' });
+    console.error("Ошибка верификации данных Telegram");
+    return res.status(401).json({ error: 'Подпись Telegram не совпадает.' });
   }
 
   const urlParams = new URLSearchParams(initData);
-  const telegramId = JSON.parse(urlParams.get('user')!).id;
+  const userRaw = urlParams.get('user');
+  if (!userRaw) return res.status(400).json({ error: 'Данные пользователя пусты' });
+  
+  const telegramId = JSON.parse(userRaw).id;
 
   try {
-    // 1. ЕСЛИ ЭТО ЗАПРОС НА СОХРАНЕНИЕ
+    // 1. ЗАПРОС НА СОХРАНЕНИЕ
     if (isSaveRequest) {
+      const finalBalance = Math.round(Number(balance));
+      const finalCases = typeof opened_cases === 'object' ? opened_cases : {};
+
       const { error } = await supabase
         .from('players')
         .update({
-          balance: balance,
-          opened_cases: opened_cases,
-          updated_at: new Date().toISOString()
+          balance: finalBalance,
+          opened_cases: finalCases
         })
-        .eq('Telegram_id', telegramId);
+        .eq('Telegram_id', telegramId); // Строго с большой буквы T, как в базе
 
-      if (error) throw error;
+      if (error) {
+        console.error("Ошибка Supabase при сохранении:", error.message);
+        return res.status(400).json({ error: error.message });
+      }
       return res.status(200).json({ success: true });
     }
 
-    // 2. ЕСЛИ ЭТО ЗАПРОС НА ЗАГРУЗКУ (ИЛИ СТАНДАРТНЫЙ КЛИК)
-    let { data: player } = await supabase
+    // 2. ЗАПРОС НА ЗАГРУЗКУ
+    let { data: player, error: selectError } = await supabase
       .from('players')
       .select('balance, opened_cases')
-      .eq('Telegram_id', telegramId)
-      .single();
+      .eq('Telegram_id', telegramId) // Строго с большой буквы T
+      .maybeSingle();
+
+    if (selectError) {
+      console.error("Ошибка Supabase при выборе игрока:", selectError.message);
+      return res.status(400).json({ error: selectError.message });
+    }
 
     if (!player) {
-      // Регистрируем нового игрока
+      // Регистрируем нового игрока, если его нет в базе
       const { data: newPlayer, error: insertError } = await supabase
         .from('players')
-        .insert([{ Telegram_id: telegramId, balance: 150, opened_cases: {} }])
+        .insert([{ 
+          Telegram_id: telegramId, // Строго с большой буквы T
+          balance: 150, 
+          opened_cases: {} 
+        }])
         .select()
-        .single();
+        .maybeSingle();
       
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Ошибка Supabase при создании игрока:", insertError.message);
+        return res.status(400).json({ error: insertError.message });
+      }
       player = newPlayer;
     }
 
     return res.status(200).json({
       success: true,
-      balance: player.balance,
-      opened_cases: player.opened_cases
+      balance: player ? player.balance : 150,
+      opened_cases: player ? player.opened_cases : {}
     });
 
   } catch (err: any) {
-    return res.status(500).json({ error: 'Ошибка базы данных', details: err.message });
+    console.error("Глобальная ошибка бэкенда:", err.message);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера', details: err.message });
   }
 }

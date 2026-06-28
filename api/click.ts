@@ -2,10 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Пытаемся прочитать любой доступный ключ Supabase, который ты добавил в панели Vercel
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || Object.keys(process.env).find(key => key.includes('ROLE_KEY')) ? process.env[Object.keys(process.env).find(key => key.includes('ROLE_KEY'))] : '';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 function verifyTelegramData(initData: string, botToken: string): boolean {
   if (!initData) return false;

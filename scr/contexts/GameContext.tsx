@@ -183,7 +183,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const telegramId = useMemo(() => getTelegramId(), []);
 
-  // 🔒 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ЧЕРЕЗ БЭКЕНД
+  // 🔒 1. ИСПРАВЛЕННАЯ НАДЕЖНАЯ ЗАГРУЗКА ДАННЫХ
   useEffect(() => {
     async function loadFromBackend() {
       // @ts-ignore
@@ -192,7 +192,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const res = await fetch('/api/click', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData, isLoadRequest: true })
+          body: JSON.stringify({ initData })
         });
 
         const data = await res.json();
@@ -200,12 +200,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (res.ok && data.success) {
           const incomingPayload = data.opened_cases && typeof data.opened_cases === 'object' ? data.opened_cases : {};
           
-          // Полностью собираем стейт, чтобы ни одно сохраненное поле не потерялось
           let loadedState: GameState = {
             ...DEFAULT_STATE,
             ...incomingPayload,
-            bulv: data.balance ?? DEFAULT_STATE.bulv,
+            bulv: data.balance !== undefined ? Number(data.balance) : DEFAULT_STATE.bulv,
           };
+          
+          // Защита старых игроков: если баланс загрузился, а атлета в базе не было, создаем базового
+          if (!loadedState.athlete && loadedState.bulv > 150) {
+            loadedState.athlete = {
+              id: "restored_" + Date.now(),
+              name: "Атлет",
+              rarity: "common",
+              energy: 1000,
+              stats: { strength: 10, mass: 10, stamina: 10, genetics: 10 }
+            };
+          }
           
           const now = Date.now();
           const elapsed = Math.min(now - (loadedState.lastTick ?? now), MAX_OFFLINE_MS);
@@ -239,29 +249,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
     loadFromBackend();
   }, [telegramId]);
 
-  // 🔒 АВТОСОХРАНЕНИЕ ВСЕГО ИГРОВОГО СТЕТА НА БЭКЕНД
+  // 🔒 2. ИСПРАВЛЕННОЕ АВТОСОХРАНЕНИЕ ПО СТАБИЛЬНОМУ ТАЙМЕРУ (РАЗ В 5 СЕКУНД)
   useEffect(() => {
     if (isLoading) return;
-    const timeout = setTimeout(async () => {
+
+    const interval = setInterval(() => {
       // @ts-ignore
       const initData = window.Telegram?.WebApp?.initData || "";
-      try {
-        await fetch('/api/click', {
+      
+      setState((currentSnap) => {
+        // Извлекаем баланс отдельно, остальной стейт пойдет чистым JSON-объектом
+        const { bulv, ...metaState } = currentSnap;
+        
+        fetch('/api/click', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             initData,
             isSaveRequest: true,
-            balance: Math.round(state.bulv),
-            opened_cases: state // Отправляем весь объект состояния целиком
+            balance: Math.round(currentSnap.bulv),
+            opened_cases: metaState
           })
-        });
-      } catch (e) {
-        console.error("Ошибка отправки сохранения на бэкенд:", e);
-      }
-    }, 800);
-    return () => clearTimeout(timeout);
-  }, [state, telegramId, isLoading]);
+        }).catch(e => console.error("Ошибка отправки сохранения на бэкенд:", e));
+
+        return currentSnap;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isLoading, telegramId]);
 
   // ЕЖЕСЕКУНДНЫЙ ТИК ИГРЫ (МАЙНИНГ И РЕГЕНЕРАЦИЯ ЭНЕРГИИ)
   useEffect(() => {

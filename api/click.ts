@@ -2,12 +2,6 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-// Пытаемся прочитать любой доступный ключ Supabase, который ты добавил в панели Vercel
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || Object.keys(process.env).find(key => key.includes('ROLE_KEY')) ? process.env[Object.keys(process.env).find(key => key.includes('ROLE_KEY'))] : '';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 function verifyTelegramData(initData: string, botToken: string): boolean {
   if (!initData) return false;
   try {
@@ -29,6 +23,18 @@ function verifyTelegramData(initData: string, botToken: string): boolean {
 }
 
 export default async function handler(req: any, res: any) {
+  // Инициализируем Supabase строго внутри хэндлера, чтобы Vercel гарантированно подтянул переменные
+  const supabaseUrl = process.env.SUPABASE_URL || '';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(200).json({ 
+      success: false, 
+      error: 'Ключи Supabase не найдены в переменных окружения Vercel.' 
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
   const body = req.method === 'POST' ? req.body : req.query;
   const { initData, isSaveRequest, balance, opened_cases } = body;
   const botToken = process.env.BOT_TOKEN!;

@@ -183,7 +183,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const telegramId = useMemo(() => getTelegramId(), []);
 
-  // 🔒 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ЧЕРЕЗ БЭКЕНД НА VERCEL С ПРОВЕРКОЙ TELEGRAM
+  // 🔒 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ЧЕРЕЗ БЭКЕНД
   useEffect(() => {
     async function loadFromBackend() {
       // @ts-ignore
@@ -192,16 +192,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const res = await fetch('/api/click', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData, isLoadRequest: true }) // Передаем флаг, что это просто загрузка/регистрация
+          body: JSON.stringify({ initData, isLoadRequest: true })
         });
 
         const data = await res.json();
         
         if (res.ok && data.success) {
+          const incomingPayload = data.opened_cases && typeof data.opened_cases === 'object' ? data.opened_cases : {};
+          
+          // Полностью собираем стейт, чтобы ни одно сохраненное поле не потерялось
           let loadedState: GameState = {
             ...DEFAULT_STATE,
-            bulv: data.balance,
-            ...(data.opened_cases && typeof data.opened_cases === 'object' ? data.opened_cases : {})
+            ...incomingPayload,
+            bulv: data.balance ?? DEFAULT_STATE.bulv,
           };
           
           const now = Date.now();
@@ -225,7 +228,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           loadedState.lastTick = now;
           setState(loadedState);
         } else {
-          console.error("Ошибка проверки бэкенда:", data.error);
+          console.error("Ошибка загрузки данных бэкенда:", data.error);
         }
       } catch (e) {
         console.error("Ошибка сети с бэкендом Vercel:", e);
@@ -236,22 +239,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     loadFromBackend();
   }, [telegramId]);
 
-  // 🔒 АВТОСОХРАНЕНИЕ ДАННЫХ ТЕПЕРЬ СТУЧИТСЯ НА НАШ БЭКЕНД VERCEL
+  // 🔒 АВТОСОХРАНЕНИЕ ВСЕГО ИГРОВОГО СТЕТА НА БЭКЕНД
   useEffect(() => {
     if (isLoading) return;
     const timeout = setTimeout(async () => {
       // @ts-ignore
       const initData = window.Telegram?.WebApp?.initData || "";
       try {
-        const { bulv, ...metaState } = state;
         await fetch('/api/click', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             initData,
-            isSaveRequest: true, // Флаг для бэкенда, что мы сохраняем стейт
+            isSaveRequest: true,
             balance: Math.round(state.bulv),
-            opened_cases: metaState
+            opened_cases: state // Отправляем весь объект состояния целиком
           })
         });
       } catch (e) {

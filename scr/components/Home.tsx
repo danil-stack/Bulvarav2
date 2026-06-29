@@ -1,6 +1,9 @@
+import { useRef, useMemo, type MouseEvent } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGame } from '../contexts/GameContext';
 import { useTelegram } from '../hooks/useTelegram';
+import { useFloatingText } from '../hooks/useFloatingText';
+import FloatingTextLayer from './FloatingTextLayer';
 import AthleteCard from './AthleteCard';
 import { formatBulv } from '../utils/format';
 import { PHARMA_ITEMS, NUTRITION_ITEMS } from '../utils/constants';
@@ -21,12 +24,58 @@ function findBoostLabel(sourceId: string): { icon: string; nameKey: string } {
 
 export default function Home({ onNavigate }: HomeProps) {
   const { t, lang } = useLanguage();
-  const { state, energyMax, power, miningRatePerHour, levelInfo } = useGame();
-  const { user } = useTelegram();
+  const { state, energyMax, power, miningRatePerHour, levelInfo, tapClicker } = useGame();
+  const { user, haptic, hapticNotify } = useTelegram();
+  const { items, push } = useFloatingText();
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const name = user?.first_name ?? (lang === 'ru' ? 'Чемпион' : 'Champion');
 
+  // 🧮 Динамический расчет ценности одного тапа на основе уровня и редкости атлета
+  const clickValue = useMemo(() => {
+    if (!state.athlete) return 0.5;
+    const currentLevel = levelInfo.current.level;
+    const rarityMultipliers: Record<string, number> = {
+      common: 1.0,
+      rare: 1.2,
+      epic: 1.4,
+      legendary: 1.8,
+    };
+    const multiplier = rarityMultipliers[state.athlete.rarity] || 1.0;
+    const baseGain = 0.5 + (currentLevel - 1) * 0.3;
+    return Math.round(baseGain * multiplier * 100) / 100;
+  }, [state.athlete, levelInfo]);
+
+  // Функция обработки тапа по блину
+  function handleBumperTap(e: MouseEvent<HTMLButtonElement>) {
+    const result = tapClicker();
+    
+    const container = containerRef.current?.getBoundingClientRect();
+    const btn = e.currentTarget.getBoundingClientRect();
+    const x = container ? ((btn.left + btn.width / 2 - container.left) / container.width) * 100 : 50;
+    const y = container ? ((btn.top - container.top) / container.height) * 100 : 50;
+
+    if (!result.ok) {
+      if (result.reason === 'no_energy') {
+        push(lang === 'ru' ? 'Нет энергии! ⚡' : 'No energy!', '#FF5252', x, y);
+        hapticNotify('error');
+      }
+      return;
+    }
+
+    haptic('light');
+    push(`+${clickValue} BULV 💎`, '#36C5F0', x + randomInRange(-5, 5), y - 10);
+  }
+
+  function randomInRange(min: number, max: number): number {
+    return Math.random() * (max - min) + min;
+  }
+
   return (
-    <div className="mx-auto max-w-md px-4 pb-28 pt-4">
+    <div 
+      ref={containerRef}
+      className="mx-auto max-w-md px-4 pb-28 pt-4 max-h-[calc(100vh-80px)] overflow-y-auto scrollbar-thin select-none"
+    >
       <div className="flex items-center justify-between">
         <p className="font-display text-lg text-white">{t('home.greeting', { name })}</p>
         {state.athlete && (
@@ -54,6 +103,43 @@ export default function Home({ onNavigate }: HomeProps) {
         <>
           <div className="mt-4">
             <AthleteCard athlete={state.athlete} power={power} energyMax={energyMax} />
+          </div>
+
+          {/* 🏋️ ТЯЖЁЛЫЙ КЛИКЕР-БЛИН С ЭФФЕКТОМ ПРОДАВЛИВАНИЯ */}
+          <div className="mt-4 rounded-3xl border border-surface-line bg-surface p-5 flex flex-col items-center text-center">
+            <p className="font-display text-sm text-white">
+              {lang === 'ru' ? 'СИЛОВОЙ КЛИКЕР' : 'POWER CLICKER'}
+            </p>
+            <p className="text-[11px] text-white/45 mt-1 leading-snug">
+              {lang === 'ru' 
+                ? 'Тапай по тяжелому блину штанги, чтобы пережигать ⚡ энергию в $BULV токены!' 
+                : 'Tap the heavy barbell plate to burn ⚡ energy directly into $BULV!'}
+            </p>
+
+            <div className="relative mt-5 flex justify-center items-center w-full h-44">
+              <button
+                onClick={handleBumperTap}
+                disabled={state.athlete.energy < 1}
+                className="w-40 h-44 rounded-full bg-gradient-to-br from-[#1E2530] to-[#0D1017] border-[10px] border-surface-line flex flex-col items-center justify-center transition-all duration-75 active:scale-95 active:brightness-90 select-none shadow-[0_0_20px_rgba(54,197,240,0.15)] active:shadow-inner border-bulv/20 active:border-bulv/40 focus:outline-none touch-none cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-surface-line to-void flex items-center justify-center border-2 border-white/20 shadow-inner">
+                  <div className="w-3 h-3 rounded-full bg-void shadow-[inset_0_0_4px_#000]" />
+                </div>
+                
+                <p className="font-display text-[10px] tracking-widest text-bulv/70 mt-1 uppercase">
+                  BULVARA
+                </p>
+                <p className="font-mono text-xs font-black text-white/80 mt-0.5">
+                  20 KG
+                </p>
+              </button>
+            </div>
+            
+            <p className="text-[10px] font-mono text-white/30 mt-2">
+              {lang === 'ru' 
+                ? `1 Клик = ${clickValue} 💎 · -1 ⚡ Энергия` 
+                : `1 Click = ${clickValue} 💎 · -1 ⚡ Energy`}
+            </p>
           </div>
 
           {/* Mining ticker */}
@@ -101,7 +187,7 @@ export default function Home({ onNavigate }: HomeProps) {
             )}
           </div>
 
-          {/* Always-visible entry points — Cases never disappears after minting */}
+          {/* Always-visible entry points */}
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button
               onClick={() => onNavigate('incubator')}
@@ -118,6 +204,8 @@ export default function Home({ onNavigate }: HomeProps) {
           </div>
         </>
       )}
+
+      <FloatingTextLayer items={items} />
     </div>
   );
 }

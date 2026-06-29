@@ -35,7 +35,7 @@ export default function Wallet() {
   const telegramId = getTelegramId();
   
   // Уникальная реферальная ссылка (замените bulvara_bot на реальный юзернейм вашего бота!)
-  const refLink = `https://t.me/bulvara_bot/app?startapp=ref_${telegramId}`;
+  const refLink = `https://t.me/bulvgame_bot/app?startapp=ref_${telegramId}`;
 
   // Загружаем список рефералов
   useEffect(() => {

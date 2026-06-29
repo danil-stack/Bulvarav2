@@ -1,4 +1,4 @@
-import { useRef, type MouseEvent } from 'react';
+import { useRef, useMemo, type MouseEvent } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGame } from '../contexts/GameContext';
 import { useTelegram } from '../hooks/useTelegram';
@@ -31,11 +31,25 @@ export default function Home({ onNavigate }: HomeProps) {
 
   const name = user?.first_name ?? (lang === 'ru' ? 'Чемпион' : 'Champion');
 
-  // Функция клика по блину
+  // 🧮 Динамический расчет ценности одного тапа на основе уровня и редкости атлета
+  const clickValue = useMemo(() => {
+    if (!state.athlete) return 0.5;
+    const currentLevel = levelInfo.current.level;
+    const rarityMultipliers: Record<string, number> = {
+      common: 1.0,
+      rare: 1.2,
+      epic: 1.4,
+      legendary: 1.8,
+    };
+    const multiplier = rarityMultipliers[state.athlete.rarity] || 1.0;
+    const baseGain = 0.5 + (currentLevel - 1) * 0.3;
+    return Math.round(baseGain * multiplier * 100) / 100;
+  }, [state.athlete, levelInfo]);
+
+  // Функция обработки тапа по блину
   function handleBumperTap(e: MouseEvent<HTMLButtonElement>) {
     const result = tapClicker();
     
-    // Рассчитываем координаты клика для вылетающего текста
     const container = containerRef.current?.getBoundingClientRect();
     const btn = e.currentTarget.getBoundingClientRect();
     const x = container ? ((btn.left + btn.width / 2 - container.left) / container.width) * 100 : 50;
@@ -50,7 +64,7 @@ export default function Home({ onNavigate }: HomeProps) {
     }
 
     haptic('light');
-    push('+0.5 BULV 💎', '#36C5F0', x + randomInRange(-5, 5), y - 10);
+    push(`+${clickValue} BULV 💎`, '#36C5F0', x + randomInRange(-5, 5), y - 10);
   }
 
   function randomInRange(min: number, max: number): number {
@@ -58,7 +72,6 @@ export default function Home({ onNavigate }: HomeProps) {
   }
 
   return (
-    /* Настраиваем плавающий ползунок (скролл) для всей вкладки Дом, чтобы ничего не вылезало за границы */
     <div 
       ref={containerRef}
       className="mx-auto max-w-md px-4 pb-28 pt-4 max-h-[calc(100vh-80px)] overflow-y-auto scrollbar-thin select-none"
@@ -109,12 +122,10 @@ export default function Home({ onNavigate }: HomeProps) {
                 disabled={state.athlete.energy < 1}
                 className="w-40 h-44 rounded-full bg-gradient-to-br from-[#1E2530] to-[#0D1017] border-[10px] border-surface-line flex flex-col items-center justify-center transition-all duration-75 active:scale-95 active:brightness-90 select-none shadow-[0_0_20px_rgba(54,197,240,0.15)] active:shadow-inner border-bulv/20 active:border-bulv/40 focus:outline-none touch-none cursor-pointer"
               >
-                {/* Металлическая втулка по центру */}
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-surface-line to-void flex items-center justify-center border-2 border-white/20 shadow-inner">
                   <div className="w-3 h-3 rounded-full bg-void shadow-[inset_0_0_4px_#000]" />
                 </div>
                 
-                {/* Надписи на блине */}
                 <p className="font-display text-[10px] tracking-widest text-bulv/70 mt-1 uppercase">
                   BULVARA
                 </p>
@@ -125,7 +136,9 @@ export default function Home({ onNavigate }: HomeProps) {
             </div>
             
             <p className="text-[10px] font-mono text-white/30 mt-2">
-              {lang === 'ru' ? '1 Клик = 0.5 💎 · -1 ⚡ Энергия' : '1 Click = 0.5 💎 · -1 ⚡ Energy'}
+              {lang === 'ru' 
+                ? `1 Клик = ${clickValue} 💎 · -1 ⚡ Энергия` 
+                : `1 Click = ${clickValue} 💎 · -1 ⚡ Energy`}
             </p>
           </div>
 
@@ -192,7 +205,6 @@ export default function Home({ onNavigate }: HomeProps) {
         </>
       )}
 
-      {/* Рендерим летающий текст прямо поверх нашего прокручиваемого контейнера */}
       <FloatingTextLayer items={items} />
     </div>
   );

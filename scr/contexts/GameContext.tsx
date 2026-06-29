@@ -151,7 +151,7 @@ interface GameContextValue {
   buyPharma: (itemId: string) => PharmaActionResult;
   buyGear: (itemId: string) => GearActionResult;
   enterArena: (leagueId: string) => ArenaActionResult;
-  tapClicker: () => { ok: boolean; reason?: 'no_athlete' | 'no_energy'; gains?: number }; // КЛИКЕР
+  tapClicker: () => { ok: boolean; reason?: 'no_athlete' | 'no_energy'; gains?: number };
   adminGiveBulv: (amount: number) => void;
   adminSetAthleteRarity: (rarity: Rarity) => void;
   adminMaxStats: () => void;
@@ -561,7 +561,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const config = MUSCLE_GROUPS.find((g) => g.id === group)!;
     if (state.athlete.energy < config.energyCost) return { ok: false, reason: 'no_energy' };
 
-    const crit = Math.random() < critChance;
+    const Math_random = Math.random();
+    const crit = Math_random < critChance;
     const mult = (crit ? CRIT_MULTIPLIER : 1) * rarityMultiplier;
 
     const gains: Partial<Stats> = {};
@@ -599,12 +600,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, crit, gains, bulvBonus, leveledUp, newLevelConfig };
   }
 
-  // 💎 ТАП-КЛИКЕР: СЖИГАНИЕ ЭНЕРГИИ В BULV (1 клик = -1 энергия, +0.5 BULV)
+  // 💎 ТАП-КЛИКЕР: СЖИГАНИЕ ЭНЕРГИИ В BULV (1 клик = -1 энергия, начисление по уровню и редкости)
   function tapClicker() {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' as const };
     if (state.athlete.energy < 1) return { ok: false, reason: 'no_energy' as const };
 
-    const earned = 0.5;
+    const currentLevel = getLevelForStrength(state.athlete.stats.strength).level;
+
+    const rarityMultipliers: Record<Rarity, number> = {
+      common: 1.0,
+      rare: 1.2,
+      epic: 1.4,
+      legendary: 1.8,
+    };
+    const multiplier = rarityMultipliers[state.athlete.rarity] || 1.0;
+
+    const baseGain = 0.5 + (currentLevel - 1) * 0.3;
+    const earned = Math.round(baseGain * multiplier * 100) / 100;
 
     setState((prev) => {
       if (!prev.athlete) return prev;
@@ -825,7 +837,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     buyPharma,
     buyGear,
     enterArena,
-    tapClicker, // КЛИКЕР
+    tapClicker,
     adminGiveBulv,
     adminSetAthleteRarity,
     adminMaxStats,

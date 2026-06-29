@@ -677,51 +677,47 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, energyRestored: Math.round(energyRestored) };
   }
 
+  // 🧪 НОВАЯ ЛОГИКА МАГАЗИНА: Покупка кладёт препарат в инвентарь
   function buyPharma(itemId: string): PharmaActionResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
 
-    const item = PHARMA_ITEMS.find((p) => p.id === itemId)!;
-    const cd = state.pharmaCooldowns[itemId] ?? 0;
-    if (Date.now() < cd) return { ok: false, reason: 'cooldown' };
+    const item = PHARMA_ITEMS.find((p) => p.id === itemId);
+    if (!item) return { ok: false };
     if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
 
-    const failed = Math.random() * 100 < item.riskPercent;
-
-    setState((prev) => {
-      if (!prev.athlete) return prev;
-      const { athlete, activeBoosts } = applyPharmaOutcome(
-        prev.athlete,
-        prev.activeBoosts,
-        item,
-        failed
-      );
-      return {
-        ...prev,
-        bulv: prev.bulv - item.price,
-        athlete,
-        activeBoosts,
-        pharmaCooldowns: {
-          ...prev.pharmaCooldowns,
-          [itemId]: Date.now() + item.cooldownMs,
-        },
-      };
-    });
-
-    return { ok: true, failed };
-  }
-
-  function buyGear(itemId: string): GearActionResult {
-    const item = GEAR_ITEMS.find((g) => g.id === itemId)!;
-    if (state.ownedGear[itemId]) return { ok: false, reason: 'owned' };
-    if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
+    const newInventoryItem: InventoryItem = {
+      id: `inv_ph_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      kind: 'pharma',
+      refId: itemId,
+      acquiredAt: Date.now()
+    };
 
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv - item.price,
-      ownedGear: {
-        ...prev.ownedGear,
-        [itemId]: true,
-      },
+      inventory: [...prev.inventory, newInventoryItem]
+    }));
+
+    return { ok: true };
+  }
+
+  // ⚙️ НОВАЯ ЛОГИКА МАГАЗИНА: Покупка кладёт снаряжение в инвентарь
+  function buyGear(itemId: string): GearActionResult {
+    const item = GEAR_ITEMS.find((g) => g.id === itemId);
+    if (!item) return { ok: false };
+    if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
+
+    const newInventoryItem: InventoryItem = {
+      id: `inv_gr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      kind: 'gear',
+      refId: itemId,
+      acquiredAt: Date.now()
+    };
+
+    setState((prev) => ({
+      ...prev,
+      bulv: prev.bulv - item.price,
+      inventory: [...prev.inventory, newInventoryItem]
     }));
 
     return { ok: true };
@@ -789,6 +785,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       };
     });
   }
+
+  font-weight: 700;
 
   function adminFullEnergy() {
     setState((prev) => {

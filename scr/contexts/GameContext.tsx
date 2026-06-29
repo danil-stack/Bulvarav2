@@ -10,6 +10,8 @@ import type {
   ActiveBoost,
   PharmaItem,
   GearItem,
+  InventoryItem,
+  LevelConfig,
 } from '../types';
 import {
   MUSCLE_GROUPS,
@@ -20,6 +22,7 @@ import {
   ATHLETE_CASE_PRICE,
   PHARMA_CASE_PRICE,
   GEAR_CASE_PRICE,
+  ATHLETE_VALUE,
   ENERGY_REGEN_TICK_MS,
   ENERGY_REGEN_PER_TICK,
   MAX_OFFLINE_MS,
@@ -33,6 +36,9 @@ import {
   getMiningRatePerHour,
   getRarityMultiplier,
   getPower,
+  getLevelInfo,
+  getLevelForStrength,
+  type LevelInfo,
 } from '../utils/selectors';
 import { randomInRange } from '../utils/format';
 
@@ -47,6 +53,8 @@ const DEFAULT_STATE: GameState = {
   arenaCooldowns: {},
   activeBoosts: [],
   arenaHistory: [],
+  inventory: [], // Новое на этой ветке
+  hasUsedFreeCase: false, // Новое на этой ветке
 };
 
 function getTelegramId(): number {
@@ -68,6 +76,8 @@ export interface TrainResult {
   crit?: boolean;
   gains?: Partial<Stats>;
   bulvBonus?: number;
+  leveledUp?: boolean;
+  newLevelConfig?: LevelConfig;
 }
 
 export interface NutritionResult {
@@ -99,16 +109,22 @@ export interface RerollResult {
   athlete?: Athlete;
 }
 
+export interface AthleteCaseResult {
+  ok: boolean;
+  reason?: 'no_bulv';
+  athlete?: Athlete;
+  becameActive?: boolean;
+}
+
 export interface PharmaCaseResult {
   ok: boolean;
   reason?: 'no_athlete' | 'no_bulv';
   item?: PharmaItem;
-  failed?: boolean;
 }
 
 export interface GearCaseResult {
   ok: boolean;
-  reason?: 'no_athlete' | 'no_bulv' | 'all_owned';
+  reason?: 'no_athlete' | 'no_bulv';
   item?: GearItem;
 }
 
@@ -121,15 +137,20 @@ interface GameContextValue {
   miningRatePerHour: number;
   rarityMultiplier: number;
   power: number;
-  mintCapsule: () => Athlete | null;
-  rerollCapsule: () => RerollResult;
+  levelInfo: LevelInfo;
+  openAthleteCase: () => AthleteCaseResult;
+  openPharmaCase: () => PharmaCaseResult;
+  openGearCase: () => GearCaseResult;
+  equipAthlete: (itemId: string) => { ok: boolean };
+  equipGear: (itemId: string) => { ok: boolean };
+  sellInventoryItem: (itemId: string) => { ok: boolean; refund?: number };
+  sellActiveAthlete: () => { ok: boolean; refund?: number };
+  useInventoryPharma: (itemId: string) => { ok: boolean; reason?: string; failed?: boolean };
   trainMuscle: (group: MuscleGroup) => TrainResult;
   consumeNutrition: (itemId: string) => NutritionResult;
   buyPharma: (itemId: string) => PharmaActionResult;
   buyGear: (itemId: string) => GearActionResult;
   enterArena: (leagueId: string) => ArenaActionResult;
-  openPharmaCase: () => PharmaCaseResult;
-  openGearCase: () => GearCaseResult;
   adminGiveBulv: (amount: number) => void;
   adminSetAthleteRarity: (rarity: Rarity) => void;
   adminMaxStats: () => void;
@@ -183,7 +204,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const telegramId = useMemo(() => getTelegramId(), []);
 
-  // Ссылка на актуальный стейт для безопасного автосохранения без побочных эффектов в setState
   const stateRef = useRef<GameState>(state);
 
   useEffect(() => {
@@ -201,7 +221,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             initData, 
-            telegramId: telegramId // Передаем ID в чистом виде напрямую
+            telegramId: telegramId
           })
         });
 
@@ -215,17 +235,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
             ...incomingPayload,
             bulv: data.balance !== undefined ? Number(data.balance) : DEFAULT_STATE.bulv,
           };
-          
-          // Защита старых игроков: если баланс есть, а атлета в jsonb не было, выдаем базового
-          if (!loadedState.athlete && loadedState.bulv > 150) {
-            loadedState.athlete = {
-              id: "restored_" + Date.now(),
-              name: "Атлет",
-              rarity: "common",
-              energy: 1000,
-              stats: { strength: 10, mass: 10, stamina: 10, genetics: 10 }
-            };
-          }
           
           const now = Date.now();
           const elapsed = Math.min(now - (loadedState.lastTick ?? now), MAX_OFFLINE_MS);
@@ -274,7 +283,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           initData,
-          telegramId: telegramId, // Передаем ID в чистом виде напрямую
+          telegramId: telegramId,
           isSaveRequest: true,
           balance: Math.round(currentSnap.bulv),
           opened_cases: metaState
@@ -334,30 +343,215 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const miningRatePerHour = useMemo(() => getMiningRatePerHour(state), [state]);
   const rarityMultiplier = useMemo(() => getRarityMultiplier(state), [state]);
   const power = useMemo(() => getPower(state), [state]);
+  const levelInfo = useMemo(() => getLevelInfo(state), [state]);
 
-  function mintCapsule() {
-    if (state.athlete) return null;
+  // 🧬 НОВЫЕ ФУНКЦИИ КЕЙСОВ ДЛЯ ИНВЕНТАРЯ
+
+  function openAthleteCase(): AthleteCaseResult {
+    const isFree = !state.hasUsedFreeCase;
+    if (!isFree && state.bulv < ATHLETE_CASE_PRICE) {
+      return { ok: false, reason: 'no_bulv' };
+    }
+
     const rarity = rollRarity();
-    const athlete = createAthlete(rarity);
-    setState((prev) => ({ ...prev, athlete }));
-    return athlete;
+    const newAthlete = createAthlete(rarity);
+    const becameActive = !state.athlete;
+
+    setState((prev) => {
+      const nextInventory = [...prev.inventory];
+      let nextActiveAthlete = prev.athlete;
+
+      if (becameActive) {
+        nextActiveAthlete = newAthlete;
+      } else {
+        nextInventory.push({
+          id: `inv_ath_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          kind: 'athlete',
+          refId: rarity,
+          athlete: newAthlete,
+          acquiredAt: Date.now()
+        });
+      }
+
+      return {
+        ...prev,
+        bulv: isFree ? prev.bulv : prev.bulv - ATHLETE_CASE_PRICE,
+        hasUsedFreeCase: true,
+        athlete: nextActiveAthlete,
+        inventory: nextInventory
+      };
+    });
+
+    return { ok: true, athlete: newAthlete, becameActive };
   }
 
-  function rerollCapsule(): RerollResult {
-    if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-    if (state.bulv < ATHLETE_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
+  function openPharmaCase(): PharmaCaseResult {
+    if (state.bulv < PHARMA_CASE_PRICE) {
+      return { ok: false, reason: 'no_bulv' };
+    }
 
-    const rarity = rollRarity();
-    const athlete = createAthlete(rarity);
+    const rolledItem = PHARMA_ITEMS[Math.floor(Math.random() * PHARMA_ITEMS.length)];
+    const newInventoryItem: InventoryItem = {
+      id: `inv_ph_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      kind: 'pharma',
+      refId: rolledItem.id,
+      acquiredAt: Date.now()
+    };
 
     setState((prev) => ({
       ...prev,
-      athlete,
-      bulv: prev.bulv - ATHLETE_CASE_PRICE,
+      bulv: prev.bulv - PHARMA_CASE_PRICE,
+      inventory: [...prev.inventory, newInventoryItem]
     }));
 
-    return { ok: true, athlete };
+    return { ok: true, item: rolledItem };
   }
+
+  function openGearCase(): GearCaseResult {
+    if (state.bulv < GEAR_CASE_PRICE) {
+      return { ok: false, reason: 'no_bulv' };
+    }
+
+    const rolledItem = GEAR_ITEMS[Math.floor(Math.random() * GEAR_ITEMS.length)];
+    const newInventoryItem: InventoryItem = {
+      id: `inv_gr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      kind: 'gear',
+      refId: rolledItem.id,
+      acquiredAt: Date.now()
+    };
+
+    setState((prev) => ({
+      ...prev,
+      bulv: prev.bulv - GEAR_CASE_PRICE,
+      inventory: [...prev.inventory, newInventoryItem]
+    }));
+
+    return { ok: true, item: rolledItem };
+  }
+
+  // 📦 НОВЫЕ ФУНКЦИИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЕМ
+
+  function equipAthlete(itemId: string) {
+    const item = state.inventory.find(i => i.id === itemId);
+    if (!item || item.kind !== 'athlete' || !item.athlete) return { ok: false };
+
+    setState((prev) => {
+      const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
+      
+      // Если уже был активный атлет, отправляем его на скамейку в инвентарь
+      if (prev.athlete) {
+        filteredInventory.push({
+          id: `inv_ath_${Date.now()}`,
+          kind: 'athlete',
+          refId: prev.athlete.rarity,
+          athlete: prev.athlete,
+          acquiredAt: Date.now()
+        });
+      }
+
+      return {
+        ...prev,
+        athlete: item.athlete!,
+        inventory: filteredInventory
+      };
+    });
+
+    return { ok: true };
+  }
+
+  function equipGear(itemId: string) {
+    const item = state.inventory.find(i => i.id === itemId);
+    if (!item || item.kind !== 'gear') return { ok: false };
+
+    setState((prev) => {
+      const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
+      return {
+        ...prev,
+        ownedGear: {
+          ...prev.ownedGear,
+          [item.refId]: true
+        },
+        inventory: filteredInventory
+      };
+    });
+
+    return { ok: true };
+  }
+
+  function useInventoryPharma(itemId: string) {
+    const item = state.inventory.find(i => i.id === itemId);
+    if (!item || item.kind !== 'pharma' || !state.athlete) return { ok: false };
+
+    const def = PHARMA_ITEMS.find(p => p.id === item.refId)!;
+    const cd = state.pharmaCooldowns[def.id] ?? 0;
+    if (Date.now() < cd) return { ok: false, reason: 'cooldown' };
+
+    const failed = Math.random() * 100 < def.riskPercent;
+
+    setState((prev) => {
+      if (!prev.athlete) return prev;
+      const { athlete, activeBoosts } = applyPharmaOutcome(
+        prev.athlete,
+        prev.activeBoosts,
+        def,
+        failed
+      );
+
+      const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
+
+      return {
+        ...prev,
+        athlete,
+        activeBoosts,
+        inventory: filteredInventory,
+        pharmaCooldowns: {
+          ...prev.pharmaCooldowns,
+          [def.id]: Date.now() + def.cooldownMs,
+        },
+      };
+    });
+
+    return { ok: true, failed };
+  }
+
+  function sellInventoryItem(itemId: string) {
+    const item = state.inventory.find(i => i.id === itemId);
+    if (!item) return { ok: false };
+
+    let refund = 0;
+    if (item.kind === 'athlete' && item.athlete) {
+      refund = Math.round(ATHLETE_VALUE[item.athlete.rarity] * 0.5);
+    } else if (item.kind === 'gear') {
+      const def = GEAR_ITEMS.find(g => g.id === item.refId)!;
+      refund = Math.round(def.price * 0.5);
+    } else if (item.kind === 'pharma') {
+      const def = PHARMA_ITEMS.find(p => p.id === item.refId)!;
+      refund = Math.round(def.price * 0.5);
+    }
+
+    setState((prev) => ({
+      ...prev,
+      bulv: prev.bulv + refund,
+      inventory: prev.inventory.filter(i => i.id !== itemId)
+    }));
+
+    return { ok: true, refund };
+  }
+
+  function sellActiveAthlete() {
+    if (!state.athlete) return { ok: false };
+    const refund = Math.round(ATHLETE_VALUE[state.athlete.rarity] * 0.5);
+
+    setState((prev) => ({
+      ...prev,
+      bulv: prev.bulv + refund,
+      athlete: null
+    }));
+
+    return { ok: true, refund };
+  }
+
+  // 🏋️ ИЗМЕНЕННЫЙ ТРЕНИНГ ДЛЯ ОТСЛЕЖИВАНИЯ УРОВНЕЙ
 
   function trainMuscle(group: MuscleGroup): TrainResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
@@ -381,6 +575,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const bulvBonus = crit ? 5 : 0;
     const prevEnergy = state.athlete.energy;
 
+    // Вычисляем уровень ДО и ПОСЛЕ тренировки
+    const levelBefore = getLevelForStrength(state.athlete.stats.strength).level;
+    const levelAfter = getLevelForStrength(newStats.strength).level;
+    const leveledUp = levelAfter > levelBefore;
+    const newLevelConfig = leveledUp ? getLevelForStrength(newStats.strength) : undefined;
+
     setState((prev) => {
       if (!prev.athlete) return prev;
       const newEnergyMax = getEnergyMax({ ...prev, athlete: { ...prev.athlete, stats: newStats } });
@@ -395,7 +595,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       };
     });
 
-    return { ok: true, crit, gains, bulvBonus };
+    return { ok: true, crit, gains, bulvBonus, leveledUp, newLevelConfig };
   }
 
   function consumeNutrition(itemId: string): NutritionResult {
@@ -533,58 +733,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, result };
   }
 
-  function openPharmaCase(): PharmaCaseResult {
-    if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-    if (state.bulv < PHARMA_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
-
-    const item = PHARMA_ITEMS[Math.floor(Math.random() * PHARMA_ITEMS.length)];
-    const failed = Math.random() * 100 < item.riskPercent;
-
-    setState((prev) => {
-      if (!prev.athlete) return prev;
-      const { athlete, activeBoosts } = applyPharmaOutcome(
-        prev.athlete,
-        prev.activeBoosts,
-        item,
-        failed
-      );
-      return {
-        ...prev,
-        bulv: prev.bulv - PHARMA_CASE_PRICE,
-        athlete,
-        activeBoosts,
-        pharmaCooldowns: {
-          ...prev.pharmaCooldowns,
-          [item.id]: Date.now() + item.cooldownMs,
-        },
-      };
-    });
-
-    return { ok: true, item, failed };
-  }
-
-  // @ts-ignore
-  function openGearCase(): GearCaseResult {
-    if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-
-    const available = GEAR_ITEMS.filter((g) => !state.ownedGear[g.id]);
-    if (available.length === 0) return { ok: false, reason: 'all_owned' };
-    if (state.bulv < GEAR_CASE_PRICE) return { ok: false, reason: 'no_bulv' };
-
-    const item = available[Math.floor(Math.random() * available.length)];
-
-    setState((prev) => ({
-      ...prev,
-      bulv: prev.bulv - GEAR_CASE_PRICE,
-      ownedGear: {
-        ...prev.ownedGear,
-        [item.id]: true,
-      },
-    }));
-
-    return { ok: true, item };
-  }
-
   function adminGiveBulv(amount: number) {
     setState((prev) => ({ ...prev, bulv: Math.max(0, prev.bulv + amount) }));
   }
@@ -639,15 +787,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     miningRatePerHour,
     rarityMultiplier,
     power,
-    mintCapsule,
-    rerollCapsule,
+    levelInfo,
+    openAthleteCase,
+    openPharmaCase,
+    openGearCase,
+    equipAthlete,
+    equipGear,
+    sellInventoryItem,
+    sellActiveAthlete,
+    useInventoryPharma,
     trainMuscle,
     consumeNutrition,
     buyPharma,
     buyGear,
     enterArena,
-    openPharmaCase,
-    openGearCase,
     adminGiveBulv,
     adminSetAthleteRarity,
     adminMaxStats,

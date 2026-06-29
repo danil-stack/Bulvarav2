@@ -211,7 +211,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     stateRef.current = state;
   }, [state]);
 
-  // 🔒 ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ЧЕРЕЗ БЭКЕНД
   useEffect(() => {
     async function loadFromBackend() {
       // @ts-ignore
@@ -220,32 +219,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const res = await fetch('/api/click', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            initData, 
-            telegramId: telegramId
-          })
+          body: JSON.stringify({ initData, telegramId: telegramId })
         });
-
         const data = await res.json();
-        
         if (res.ok && data.success) {
           const incomingPayload = data.opened_cases && typeof data.opened_cases === 'object' ? data.opened_cases : {};
-          
           let loadedState: GameState = {
             ...DEFAULT_STATE,
             ...incomingPayload,
             bulv: data.balance !== undefined ? Number(data.balance) : DEFAULT_STATE.bulv,
           };
-          
           const now = Date.now();
           const elapsed = Math.min(now - (loadedState.lastTick ?? now), MAX_OFFLINE_MS);
-          
           if (loadedState.athlete && elapsed > 1000) {
             const rate = getMiningRatePerHour(loadedState);
             const mined = (rate / 3_600_000) * elapsed;
             const energyMax = getEnergyMax(loadedState);
             const regen = (elapsed / ENERGY_REGEN_TICK_MS) * ENERGY_REGEN_PER_TICK;
-
             loadedState.bulv += mined;
             loadedState.totalMined += mined;
             loadedState.athlete = {
@@ -253,7 +243,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
               energy: Math.min(energyMax, loadedState.athlete.energy + regen),
             };
           }
-          
           loadedState.activeBoosts = (loadedState.activeBoosts || []).filter((b) => b.expiresAt > now);
           loadedState.lastTick = now;
           setState(loadedState);
@@ -269,16 +258,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     loadFromBackend();
   }, [telegramId]);
 
-  // 🔒 АВТОСОХРАНЕНИЕ ВСЕГО ИГРОВОГО СТЕТА НА БЭКЕНД
   useEffect(() => {
     if (isLoading) return;
-
     const interval = setInterval(() => {
       // @ts-ignore
       const initData = window.Telegram?.WebApp?.initData || "";
       const currentSnap = stateRef.current;
       const { bulv, ...metaState } = currentSnap;
-      
       fetch('/api/click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -298,29 +284,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
       })
       .catch(e => console.error("Ошибка отправки сохранения на бэкенд:", e));
     }, 5000);
-
     return () => clearInterval(interval);
   }, [isLoading, telegramId]);
 
-  // ЕЖЕСЕКУНДНЫЙ ТИК ИГРЫ (МАЙНИНГ И РЕГЕНЕРАЦИЯ ЭНЕРГИИ)
   useEffect(() => {
     if (isLoading) return;
     const interval = setInterval(() => {
       setState((prev) => {
         const now = Date.now();
         const activeBoosts = prev.activeBoosts.filter((b) => b.expiresAt > now);
-
         if (!prev.athlete) {
           return { ...prev, lastTick: now, activeBoosts };
         }
-
         const deltaMs = now - prev.lastTick;
         const rate = getMiningRatePerHour(prev);
         const mined = (rate / 3_600_000) * deltaMs;
-
         const energyMax = getEnergyMax(prev);
         const energyRegen = (deltaMs / ENERGY_REGEN_TICK_MS) * ENERGY_REGEN_PER_TICK;
-
         return {
           ...prev,
           bulv: prev.bulv + mined,
@@ -334,7 +314,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         };
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, [isLoading]);
 
@@ -346,22 +325,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const power = useMemo(() => getPower(state), [state]);
   const levelInfo = useMemo(() => getLevelInfo(state), [state]);
 
-  // 🧬 ФУНКЦИИ КЕЙСОВ ДЛЯ ИНВЕНТАРЯ
-
   function openAthleteCase(): AthleteCaseResult {
     const isFree = !state.hasUsedFreeCase;
     if (!isFree && state.bulv < ATHLETE_CASE_PRICE) {
       return { ok: false, reason: 'no_bulv' };
     }
-
     const rarity = rollRarity();
     const newAthlete = createAthlete(rarity);
     const becameActive = !state.athlete;
-
     setState((prev) => {
       const nextInventory = [...prev.inventory];
       let nextActiveAthlete = prev.athlete;
-
       if (becameActive) {
         nextActiveAthlete = newAthlete;
       } else {
@@ -373,7 +347,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
           acquiredAt: Date.now()
         });
       }
-
       return {
         ...prev,
         bulv: isFree ? prev.bulv : prev.bulv - ATHLETE_CASE_PRICE,
@@ -382,7 +355,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         inventory: nextInventory
       };
     });
-
     return { ok: true, athlete: newAthlete, becameActive };
   }
 
@@ -390,7 +362,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (state.bulv < PHARMA_CASE_PRICE) {
       return { ok: false, reason: 'no_bulv' };
     }
-
     const rolledItem = PHARMA_ITEMS[Math.floor(Math.random() * PHARMA_ITEMS.length)];
     const newInventoryItem: InventoryItem = {
       id: `inv_ph_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -398,13 +369,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       refId: rolledItem.id,
       acquiredAt: Date.now()
     };
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv - PHARMA_CASE_PRICE,
       inventory: [...prev.inventory, newInventoryItem]
     }));
-
     return { ok: true, item: rolledItem };
   }
 
@@ -412,7 +381,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (state.bulv < GEAR_CASE_PRICE) {
       return { ok: false, reason: 'no_bulv' };
     }
-
     const rolledItem = GEAR_ITEMS[Math.floor(Math.random() * GEAR_ITEMS.length)];
     const newInventoryItem: InventoryItem = {
       id: `inv_gr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -420,25 +388,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       refId: rolledItem.id,
       acquiredAt: Date.now()
     };
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv - GEAR_CASE_PRICE,
       inventory: [...prev.inventory, newInventoryItem]
     }));
-
     return { ok: true, item: rolledItem };
   }
-
-  // 📦 ФУНКЦИИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЕМ
 
   function equipAthlete(itemId: string) {
     const item = state.inventory.find(i => i.id === itemId);
     if (!item || item.kind !== 'athlete' || !item.athlete) return { ok: false };
-
     setState((prev) => {
       const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
-      
       if (prev.athlete) {
         filteredInventory.push({
           id: `inv_ath_${Date.now()}`,
@@ -448,21 +410,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
           acquiredAt: Date.now()
         });
       }
-
       return {
         ...prev,
         athlete: item.athlete!,
         inventory: filteredInventory
       };
     });
-
     return { ok: true };
   }
 
   function equipGear(itemId: string) {
     const item = state.inventory.find(i => i.id === itemId);
     if (!item || item.kind !== 'gear') return { ok: false };
-
     setState((prev) => {
       const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
       return {
@@ -474,22 +433,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
         inventory: filteredInventory
       };
     });
-
     return { ok: true };
   }
 
   function useInventoryPharma(itemId: string) {
     const item = state.inventory.find(i => i.id === itemId);
     if (!item || item.kind !== 'pharma') return { ok: false };
-
     const def = PHARMA_ITEMS.find((p) => p.id === item.refId);
     if (!def) return { ok: false };
-
     const cd = state.pharmaCooldowns[def.id] ?? 0;
     if (Date.now() < cd) return { ok: false, reason: 'cooldown' };
-
     const failed = Math.random() * 100 < def.riskPercent;
-
     setState((prev) => {
       if (!prev.athlete) return prev;
       const { athlete, activeBoosts } = applyPharmaOutcome(
@@ -498,9 +452,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         def,
         failed
       );
-
       const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
-
       return {
         ...prev,
         athlete,
@@ -512,14 +464,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         },
       };
     });
-
     return { ok: true, failed };
   }
 
   function sellInventoryItem(itemId: string) {
     const item = state.inventory.find(i => i.id === itemId);
     if (!item) return { ok: false };
-
     let refund = 0;
     if (item.kind === 'athlete' && item.athlete) {
       refund = Math.round(ATHLETE_VALUE[item.athlete.rarity] * 0.5);
@@ -530,59 +480,46 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const def = PHARMA_ITEMS.find(p => p.id === item.refId)!;
       refund = Math.round(def.price * 0.5);
     }
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv + refund,
       inventory: prev.inventory.filter(i => i.id !== itemId)
     }));
-
     return { ok: true, refund };
   }
 
   function sellActiveAthlete() {
     if (!state.athlete) return { ok: false };
     const refund = Math.round(ATHLETE_VALUE[state.athlete.rarity] * 0.5);
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv + refund,
       athlete: null
     }));
-
     return { ok: true, refund };
   }
 
-  // 🏋️ ТРЕНИНГ ДЛЯ ОТСЛЕЖИВАНИЯ УРОВНЕЙ
-
   function trainMuscle(group: MuscleGroup): TrainResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-
     const config = MUSCLE_GROUPS.find((g) => g.id === group)!;
     if (state.athlete.energy < config.energyCost) return { ok: false, reason: 'no_energy' };
-
     const Math_random = Math.random();
     const crit = Math_random < critChance;
     const mult = (crit ? CRIT_MULTIPLIER : 1) * rarityMultiplier;
-
     const gains: Partial<Stats> = {};
     (Object.keys(config.gains) as StatKey[]).forEach((key) => {
       gains[key] = Math.round((config.gains[key] ?? 0) * mult);
     });
-
     const newStats: Stats = { ...state.athlete.stats };
     (Object.keys(gains) as StatKey[]).forEach((key) => {
       newStats[key] = newStats[key] + (gains[key] ?? 0);
     });
-
     const bulvBonus = crit ? 5 : 0;
     const prevEnergy = state.athlete.energy;
-
     const levelBefore = getLevelForStrength(state.athlete.stats.strength).level;
     const levelAfter = getLevelForStrength(newStats.strength).level;
     const leveledUp = levelAfter > levelBefore;
     const newLevelConfig = leveledUp ? getLevelForStrength(newStats.strength) : undefined;
-
     setState((prev) => {
       if (!prev.athlete) return prev;
       const newEnergyMax = getEnergyMax({ ...prev, athlete: { ...prev.athlete, stats: newStats } });
@@ -596,17 +533,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         },
       };
     });
-
     return { ok: true, crit, gains, bulvBonus, leveledUp, newLevelConfig };
   }
 
-  // 💎 ТАП-КЛИКЕР: СЖИГАНИЕ ЭНЕРГИИ В BULV (1 клик = -1 энергия, начисление по уровню и редкости)
   function tapClicker() {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' as const };
     if (state.athlete.energy < 1) return { ok: false, reason: 'no_energy' as const };
-
     const currentLevel = getLevelForStrength(state.athlete.stats.strength).level;
-
     const rarityMultipliers: Record<Rarity, number> = {
       common: 1.0,
       rare: 1.2,
@@ -614,10 +547,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       legendary: 1.8,
     };
     const multiplier = rarityMultipliers[state.athlete.rarity] || 1.0;
-
     const baseGain = 0.5 + (currentLevel - 1) * 0.3;
     const earned = Math.round(baseGain * multiplier * 100) / 100;
-
     setState((prev) => {
       if (!prev.athlete) return prev;
       return {
@@ -630,26 +561,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       };
     });
-
     return { ok: true, gains: earned };
   }
 
   function consumeNutrition(itemId: string): NutritionResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-
     const item = NUTRITION_ITEMS.find((n) => n.id === itemId)!;
     const cd = state.nutritionCooldowns[itemId] ?? 0;
     if (Date.now() < cd) return { ok: false, reason: 'cooldown' };
     if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
-
     const currentEnergyMax = getEnergyMax(state);
     const energyRestored = Math.min(currentEnergyMax, state.athlete.energy + (item.effect.energy ?? 0)) - state.athlete.energy;
-
     setState((prev) => {
       if (!prev.athlete) return prev;
       const max = getEnergyMax(prev);
       const newBoosts = [...prev.activeBoosts];
-
       if (item.effect.type === 'miningBoost' && item.effect.boostPercent) {
         newBoosts.push({
           sourceId: item.id,
@@ -658,7 +584,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
           expiresAt: Date.now() + (item.effect.boostDurationMs ?? 0),
         });
       }
-
       return {
         ...prev,
         bulv: prev.bulv - item.price,
@@ -673,76 +598,61 @@ export function GameProvider({ children }: { children: ReactNode }) {
         },
       };
     });
-
     return { ok: true, energyRestored: Math.round(energyRestored) };
   }
 
-  // 🧪 НОВАЯ ЛОГИКА МАГАЗИНА: Покупка кладёт препарат в инвентарь
   function buyPharma(itemId: string): PharmaActionResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-
     const item = PHARMA_ITEMS.find((p) => p.id === itemId);
     if (!item) return { ok: false };
     if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
-
     const newInventoryItem: InventoryItem = {
       id: `inv_ph_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       kind: 'pharma',
       refId: itemId,
       acquiredAt: Date.now()
     };
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv - item.price,
       inventory: [...prev.inventory, newInventoryItem]
     }));
-
     return { ok: true };
   }
 
-  // ⚙️ НОВАЯ ЛОГИКА МАГАЗИНА: Покупка кладёт снаряжение в инвентарь
   function buyGear(itemId: string): GearActionResult {
     const item = GEAR_ITEMS.find((g) => g.id === itemId);
     if (!item) return { ok: false };
     if (state.bulv < item.price) return { ok: false, reason: 'no_bulv' };
-
     const newInventoryItem: InventoryItem = {
       id: `inv_gr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       kind: 'gear',
       refId: itemId,
       acquiredAt: Date.now()
     };
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv - item.price,
       inventory: [...prev.inventory, newInventoryItem]
     }));
-
     return { ok: true };
   }
 
   function enterArena(leagueId: string): ArenaActionResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
-
     const league = LEAGUES.find((l) => l.id === leagueId)!;
     if (power < league.minPower) return { ok: false, reason: 'locked' };
-
     const cd = state.arenaCooldowns[leagueId] ?? 0;
     if (Date.now() < cd) return { ok: false, reason: 'cooldown' };
     if (state.bulv < league.entryFee) return { ok: false, reason: 'no_bulv' };
-
     const opponentPower = Math.round(league.minPower * (0.75 + Math.random() * 0.55) + 12);
     const win = power + randomInRange(-10, 10) >= opponentPower;
-
     let reward = 0;
     if (win) {
       const baseReward = randomInRange(league.rewardMin, league.rewardMax);
       const ratio = power / Math.max(1, opponentPower);
       reward = Math.round(baseReward * Math.min(1.4, ratio));
     }
-
     const result: ArenaResult = {
       leagueId,
       win,
@@ -751,7 +661,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       opponentPower,
       timestamp: Date.now(),
     };
-
     setState((prev) => ({
       ...prev,
       bulv: prev.bulv - league.entryFee + reward,
@@ -761,7 +670,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       arenaHistory: [result, ...prev.arenaHistory].slice(0, 20),
     }));
-
     return { ok: true, result };
   }
 
@@ -807,4 +715,55 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   function adminResetSave() {
-    setState({ ...DEFAULT_STAT
+    setState({ ...DEFAULT_STATE, lastTick: Date.now() });
+  }
+
+  const value: GameContextValue = {
+    state,
+    isLoading,
+    energyMax,
+    critChance,
+    effectiveStrength,
+    miningRatePerHour,
+    rarityMultiplier,
+    power,
+    levelInfo,
+    openAthleteCase,
+    openPharmaCase,
+    openGearCase,
+    equipAthlete,
+    equipGear,
+    sellInventoryItem,
+    sellActiveAthlete,
+    useInventoryPharma,
+    trainMuscle,
+    consumeNutrition,
+    buyPharma,
+    buyGear,
+    enterArena,
+    tapClicker,
+    adminGiveBulv,
+    adminSetAthleteRarity,
+    adminMaxStats,
+    adminFullEnergy,
+    adminUnlockAllGear,
+    adminResetCooldowns,
+    adminResetSave,
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#000', color: '#fff', fontFamily: 'sans-serif', fontSize: '18px', fontWeight: 'bold' }}>
+        Загрузка профиля...
+      </div>
+    );
+  }
+
+  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+}
+
+export function useGame() {
+  const ctx = useContext(GameContext);
+  if (!ctx) throw new Error('useGame must be used within GameProvider');
+  return ctx;
+}

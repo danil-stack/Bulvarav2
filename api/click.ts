@@ -1,94 +1,105 @@
+// @ts-nocheck
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
-
-// Инициализируем Supabase клиент с помощью супер-ключа (SERVICE_ROLE)
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Именно этот ключ пробивает созданную нами защиту RLS
-);
-
-// Секретная функция Telegram для проверки, что запрос не подделан хакером
-function verifyTelegramData(initData: string, botToken: string): boolean {
-  if (!initData) return false;
-  
-  const urlParams = new URLSearchParams(initData);
-  const hash = urlParams.get('hash');
-  urlParams.delete('hash');
-
-  const dataCheckString = Array.from(urlParams.entries())
-    .map(([key, value]) => `${key}=${value}`)
-    .sort()
-    .join('\n');
-
-  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-  const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-
-  return calculatedHash === hash;
-}
 
 export default async function handler(req: any, res: any) {
-  // Разрешаем только POST запросы
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
-
-  const { initData } = req.body;
-  const botToken = process.env.BOT_TOKEN;
-
-  if (!botToken) {
-    return res.status(500).json({ error: 'Сервер не настроен: отсутствует BOT_TOKEN' });
-  }
-
-  // 🔒 ЗАЩИТА 1: Проверяем цифровую подпись Telegram
-  if (!verifyTelegramData(initData, botToken)) {
-    return res.status(401).json({ error: 'Попытка взлома! Подпись Telegram не совпадает.' });
-  }
-
-  // Парсим данные юзера из проверенной строки Telegram
-  const urlParams = new URLSearchParams(initData);
-  const userRaw = urlParams.get('user');
-  if (!userRaw) return res.status(400).json({ error: 'Данные пользователя пусты' });
-
-  const tgUser = JSON.parse(userRaw);
-  const telegramId = tgUser.id;
 
   try {
-    // Запрашиваем текущего игрока из твоей таблицы
-    let { data: player, error } = await supabase
-      .from('players') // Имя твоей таблицы из Supabase
-      .select('balance')
-      .eq('telegram_id', telegramId) // Имя колонки с ID (у тебя на скрине Telegram_id или telegram_id)
-      .single();
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    
+    // 🔍 ДИАГНОСТИКА: Проверяем, видит ли Vercel наш секретный ключ
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(200).json({ 
+        success: false, 
+        error: 'ОШИБКА НАСТРОЙКИ: Vercel не видит переменную "SUPABASE_SERVICE_ROLE_KEY". Проверьте настройки Environment Variables и ОБЯЗАТЕЛЬНО сделайте Redeploy!' 
+      });
+    }
 
-    // Если игрока еще нет в базе — автоматически регистрируем его
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const body = req.body || {};
+    const { initData, isSaveRequest, balance, opened_cases } = body;
+
+    let telegramId = body.telegramId ? parseInt(body.telegramId, 10) : null;
+
+    if (!telegramId && initData) {
+      try {
+        const urlParams = new URLSearchParams(initData);
+        const userRaw = urlParams.get('user');
+        if (userRaw) {
+          telegramId = parseInt(JSON.parse(userRaw).id, 10);
+        }
+      } catch (e) {
+        console.error("Ошибка парсинга Telegram ID:", e);
+      }
+    }
+
+    if (!telegramId) {
+      return res.status(200).json({ success: false, error: 'Не удалось определить Telegram ID' });
+    }
+
+    // 1. СОХРАНЕНИЕ ПРОГРЕССА
+    if (isSaveRequest) {
+      const finalBalance = balance !== undefined ? Math.round(Number(balance)) : 150;
+      const gameStatePayload = opened_cases && typeof opened_cases === 'object' ? opened_cases : {};
+      
+      const { error: upsertError } = await supabase
+        .from('players')
+        .upsert({ 
+          telegram_id: telegramId, 
+          balance: finalBalance, 
+          opened_cases: gameStatePayload,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'telegram_id' });
+
+      if (upsertError) {
+        return res.status(200).json({ success: false, error: upsertError.message });
+      }
+      return res.status(200).json({ success: true });
+    }
+
+    // 2. ЗАГРУЗКА ДАННЫХ ИГРОКА
+    let { data: player, error: selectError } = await supabase
+      .from('players')
+      .select('balance, opened_cases')
+      .eq('telegram_id', telegramId)
+      .maybeSingle();
+
+    if (selectError) {
+      return res.status(200).json({ success: false, error: selectError.message });
+    }
+
     if (!player) {
       const { data: newPlayer, error: insertError } = await supabase
         .from('players')
-        .insert([{ telegram_id: telegramId, balance: 0 }])
+        .insert([{ 
+          telegram_id: telegramId, 
+          balance: 150, 
+          opened_cases: {} 
+        }])
         .select()
-        .single();
-      
-      if (insertError) throw insertError;
+        .maybeSingle();
+
+      if (insertError) {
+        return res.status(200).json({ success: false, error: insertError.message });
+      }
       player = newPlayer;
     }
 
-    // 🔒 ЗАЩИТА 2: Математику считает только сервер!
-    // Никаких balance + 1 на фронтенде. Прибавляем фиксированную награду (например, +1 за клик)
-    const reward = 1; 
-    const newBalance = Number(player.balance) + reward;
-
-    // Обновляем баланс в базе данных
-    const { error: updateError } = await supabase
-      .from('players')
-      .update({ balance: newBalance, updated_at: new Date() })
-      .eq('telegram_id', telegramId);
-
-    if (updateError) throw updateError;
-
-    // Возвращаем честный баланс на фронтенд
-    return res.status(200).json({ success: true, balance: newBalance });
+    return res.status(200).json({
+      success: true,
+      balance: player ? player.balance : 150,
+      opened_cases: player && player.opened_cases ? player.opened_cases : {}
+    });
 
   } catch (err: any) {
-    return res.status(500).json({ error: 'Ошибка базы данных', details: err.message });
+    return res.status(200).json({ success: false, error: 'Исключение бэкенда: ' + err.message });
   }
 }

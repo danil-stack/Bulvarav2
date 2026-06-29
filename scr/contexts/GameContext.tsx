@@ -53,8 +53,8 @@ const DEFAULT_STATE: GameState = {
   arenaCooldowns: {},
   activeBoosts: [],
   arenaHistory: [],
-  inventory: [], // Новое на этой ветке
-  hasUsedFreeCase: false, // Новое на этой ветке
+  inventory: [],
+  hasUsedFreeCase: false,
 };
 
 function getTelegramId(): number {
@@ -151,6 +151,7 @@ interface GameContextValue {
   buyPharma: (itemId: string) => PharmaActionResult;
   buyGear: (itemId: string) => GearActionResult;
   enterArena: (leagueId: string) => ArenaActionResult;
+  tapClicker: () => { ok: boolean; reason?: 'no_athlete' | 'no_energy'; gains?: number }; // КЛИКЕР
   adminGiveBulv: (amount: number) => void;
   adminSetAthleteRarity: (rarity: Rarity) => void;
   adminMaxStats: () => void;
@@ -345,7 +346,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const power = useMemo(() => getPower(state), [state]);
   const levelInfo = useMemo(() => getLevelInfo(state), [state]);
 
-  // 🧬 НОВЫЕ ФУНКЦИИ КЕЙСОВ ДЛЯ ИНВЕНТАРЯ
+  // 🧬 ФУНКЦИИ КЕЙСОВ ДЛЯ ИНВЕНТАРЯ
 
   function openAthleteCase(): AthleteCaseResult {
     const isFree = !state.hasUsedFreeCase;
@@ -429,7 +430,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, item: rolledItem };
   }
 
-  // 📦 НОВЫЕ ФУНКЦИИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЕМ
+  // 📦 ФУНКЦИИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЕМ
 
   function equipAthlete(itemId: string) {
     const item = state.inventory.find(i => i.id === itemId);
@@ -438,7 +439,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => {
       const filteredInventory = prev.inventory.filter(i => i.id !== itemId);
       
-      // Если уже был активный атлет, отправляем его на скамейку в инвентарь
       if (prev.athlete) {
         filteredInventory.push({
           id: `inv_ath_${Date.now()}`,
@@ -480,9 +480,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function useInventoryPharma(itemId: string) {
     const item = state.inventory.find(i => i.id === itemId);
-    if (!item || item.kind !== 'pharma' || !state.athlete) return { ok: false };
+    if (!item || item.kind !== 'pharma') return { ok: false };
 
-    const def = PHARMA_ITEMS.find(p => p.id === item.refId)!;
+    const def = PHARMA_ITEMS.find((p) => p.id === item.refId);
+    if (!def) return { ok: false };
+
     const cd = state.pharmaCooldowns[def.id] ?? 0;
     if (Date.now() < cd) return { ok: false, reason: 'cooldown' };
 
@@ -551,7 +553,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return { ok: true, refund };
   }
 
-  // 🏋️ ИЗМЕНЕННЫЙ ТРЕНИНГ ДЛЯ ОТСЛЕЖИВАНИЯ УРОВНЕЙ
+  // 🏋️ ТРЕНИНГ ДЛЯ ОТСЛЕЖИВАНИЯ УРОВНЕЙ
 
   function trainMuscle(group: MuscleGroup): TrainResult {
     if (!state.athlete) return { ok: false, reason: 'no_athlete' };
@@ -575,7 +577,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const bulvBonus = crit ? 5 : 0;
     const prevEnergy = state.athlete.energy;
 
-    // Вычисляем уровень ДО и ПОСЛЕ тренировки
     const levelBefore = getLevelForStrength(state.athlete.stats.strength).level;
     const levelAfter = getLevelForStrength(newStats.strength).level;
     const leveledUp = levelAfter > levelBefore;
@@ -596,6 +597,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
 
     return { ok: true, crit, gains, bulvBonus, leveledUp, newLevelConfig };
+  }
+
+  // 💎 ТАП-КЛИКЕР: СЖИГАНИЕ ЭНЕРГИИ В BULV (1 клик = -1 энергия, +0.5 BULV)
+  function tapClicker() {
+    if (!state.athlete) return { ok: false, reason: 'no_athlete' as const };
+    if (state.athlete.energy < 1) return { ok: false, reason: 'no_energy' as const };
+
+    const earned = 0.5;
+
+    setState((prev) => {
+      if (!prev.athlete) return prev;
+      return {
+        ...prev,
+        bulv: prev.bulv + earned,
+        totalMined: prev.totalMined + earned,
+        athlete: {
+          ...prev.athlete,
+          energy: Math.max(0, prev.athlete.energy - 1)
+        }
+      };
+    });
+
+    return { ok: true, gains: earned };
   }
 
   function consumeNutrition(itemId: string): NutritionResult {
@@ -801,6 +825,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     buyPharma,
     buyGear,
     enterArena,
+    tapClicker, // КЛИКЕР
     adminGiveBulv,
     adminSetAthleteRarity,
     adminMaxStats,
@@ -813,7 +838,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#000', color: '#fff', fontFamily: 'sans-serif', fontSize: '18px', fontWeight: 'bold' }}>
-        Загрузка профиля игрока...
+        Загрузка профиля...
       </div>
     );
   }

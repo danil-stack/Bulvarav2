@@ -786,8 +786,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  font-weight: 700;
-
   function adminFullEnergy() {
     setState((prev) => {
       if (!prev.athlete) return prev;
@@ -809,55 +807,4 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   function adminResetSave() {
-    setState({ ...DEFAULT_STATE, lastTick: Date.now() });
-  }
-
-  const value: GameContextValue = {
-    state,
-    isLoading,
-    energyMax,
-    critChance,
-    effectiveStrength,
-    miningRatePerHour,
-    rarityMultiplier,
-    power,
-    levelInfo,
-    openAthleteCase,
-    openPharmaCase,
-    openGearCase,
-    equipAthlete,
-    equipGear,
-    sellInventoryItem,
-    sellActiveAthlete,
-    useInventoryPharma,
-    trainMuscle,
-    consumeNutrition,
-    buyPharma,
-    buyGear,
-    enterArena,
-    tapClicker,
-    adminGiveBulv,
-    adminSetAthleteRarity,
-    adminMaxStats,
-    adminFullEnergy,
-    adminUnlockAllGear,
-    adminResetCooldowns,
-    adminResetSave,
-  };
-
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#000', color: '#fff', fontFamily: 'sans-serif', fontSize: '18px', fontWeight: 'bold' }}>
-        Загрузка профиля...
-      </div>
-    );
-  }
-
-  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
-}
-
-export function useGame() {
-  const ctx = useContext(GameContext);
-  if (!ctx) throw new Error('useGame must be used within GameProvider');
-  return ctx;
-}
+    setState({ ...DEFAULT_STAT
